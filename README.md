@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.1.1**（见 `manifest.json`）
+**版本 / Version:** **2.1.2**（见 `manifest.json`）
 
 ### 一句话场景 / What it’s for
 
@@ -101,6 +101,7 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 | 星标队列页签浅金背景（`#fde68a`；★ 为 `#eab308`） | Starred tab light-gold fill (`#fde68a`; lit ★ `#eab308`) |
 | 最新加入的卡片排在列表上方；打开下一个仍先开最早未读 | Newest cards at top of list; open-next still oldest unread |
 | 拖动手柄（☰）跟手拖动排序；荧光蓝线 + 上下卡片挤开让位 | Drag handle (☰); neon line + cards push apart at gap |
+| 条目少时弹窗贴着内容变矮；条目多时涨到 Chrome 弹窗上限（约 600px），只有列表滚动 | Few items: popup hugs the list; many items: ~600px cap, only the list scrolls |
 | 补全标题：网络静默（不开标签、不抢前台） | Title fill: silent network (no tabs / no focus steal) |
 | 卡片「复制链接」一键复制完整 URL | Card **复制链接** copies full URL |
 | **不会**为取标题抢前台或自动播视频 | **No** focus-steal / autoplay just to fetch titles |
@@ -163,7 +164,14 @@ Do not use real browsing history in README/repo screenshots; demos must be redac
 
 ---
 
-## v2.1.1 变更 / Changelog
+## v2.1.2 变更 / Changelog
+
+- 弹窗高度随内容收缩：1 条时很矮，不再留下大块空白；条目多时涨到 **Chrome 操作弹窗上限（约 600px）**，只有列表（`.queue`）滚动，顶栏、按钮和页脚保持可见  
+  Popup height hugs the content: one item stays short; many items grow to **Chrome’s action-popup cap (~600px)**. Only the list scrolls; header, actions, and footer stay visible
+- 这个约 600px 是 Chrome 的硬限制，扩展弹窗到不了浏览器窗口最底部  
+  That ~600px cap is a Chrome platform limit; an action popup cannot reach the bottom of the browser window
+
+### v2.1.1
 
 - 操作行去掉「清空历史」和「清空队列」，改成一颗红色 **清空当前队列**（`class="btn danger"`，外观与原来的「清空队列」相同）  
   Actions row drops **清空历史** and **清空队列**. One red **清空当前队列** replaces them (`class="btn danger"`, same look as the old clear-queue button)
