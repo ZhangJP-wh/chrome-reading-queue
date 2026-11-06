@@ -118,7 +118,7 @@ body {
   background: rgba(15, 23, 42, 0.12);
 }
 
-/* 历史队列：与 .btn.muted（补全标题 / 清空历史）同一灰，激活也不改成海军蓝或金色 */
+/* 历史队列：与 .btn.muted（补全标题）同一灰，激活也不改成海军蓝或金色 */
 .tab.tab-history {
   background: #e2e8f0;
   border-color: #cbd5e1;

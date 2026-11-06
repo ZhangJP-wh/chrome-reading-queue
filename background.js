@@ -1,5 +1,5 @@
 /**
- * Reading Queue v2.1.0
+ * Reading Queue v2.1.1
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
@@ -15,6 +15,10 @@
  *   Drag-handle reorder reassigns addedAt inside that tab's visible list (same read-group).
  *   Drag feedback: neon insert line + cards push apart (shift-up / shift-down) at the gap.
  *   openNext always picks the oldest unread by addedAt — not by on-screen position.
+ * Popup clear: one danger button「清空当前队列」, hidden on 未读队列.
+ *   clearCurrentView({ view:'starred' }) deletes unread+starred only;
+ *   clearCurrentView({ view:'history' }) deletes read items (former clearHistory).
+ *   view 'unread' is refused so unread cannot be mass-cleared.
  * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
  */
 
@@ -1318,6 +1322,41 @@ async function openNext({ force = false } = {}) {
   return openItemById(oldest.id, { force });
 }
 
+/**
+ * Delete only the items the named popup tab is showing.
+ * starred: unread + starred. history: every read item (former clearHistory).
+ * Any other view, including unread, is refused and does not touch storage.
+ */
+async function clearCurrentView(view) {
+  if (view !== 'starred' && view !== 'history') {
+    return { ok: false, reason: 'bad_view' };
+  }
+  const { queue } = await getState();
+  const drop =
+    view === 'history'
+      ? (item) => isRead(item)
+      : (item) => Boolean(item && item.starred) && !isRead(item);
+  const removedIds = new Set();
+  const next = [];
+  for (const item of queue) {
+    if (drop(item)) removedIds.add(item.id);
+    else next.push(item);
+  }
+  await setQueue(next);
+  if (removedIds.size) {
+    const pending = await getPending();
+    await setPending(pending.filter((job) => !removedIds.has(job.id)));
+  }
+  return {
+    ok: true,
+    view,
+    removed: removedIds.size,
+    unread: unreadCount(next),
+    history: next.filter(isRead).length,
+    starred: starredCount(next)
+  };
+}
+
 async function fillToMax() {
   await syncActiveFromStorage();
   const results = [];
@@ -1506,16 +1545,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
         }
         case 'clearHistory': {
-          const { queue } = await getState();
-          const removedIds = new Set(
-            queue.filter((i) => isRead(i)).map((i) => i.id)
-          );
-          await setQueue(queue.filter((i) => !isRead(i)));
-          if (removedIds.size) {
-            const pending = await getPending();
-            await setPending(pending.filter((j) => !removedIds.has(j.id)));
-          }
-          sendResponse({ ok: true });
+          sendResponse(await clearCurrentView('history'));
+          break;
+        }
+        case 'clearCurrentView': {
+          sendResponse(await clearCurrentView(message.view));
           break;
         }
         case 'markRead': {

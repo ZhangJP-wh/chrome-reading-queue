@@ -1,5 +1,5 @@
 /**
- * Popup for Reading Queue v2.1.0.
+ * Popup for Reading Queue v2.1.1.
  * Tabs: 未读队列 (unread), 星标队列 (unread + starred), 历史队列 (read).
  * 标为已读 / 标为未读 update read state and do not open a tab.
  */
@@ -267,8 +267,13 @@ async function refresh() {
 
   $('btnOpenNext').disabled = u === 0;
   $('btnFill').disabled = u === 0 || activeCount >= maxActiveTabs;
-  $('btnClearHistory').disabled = h === 0;
-  $('btnClear').disabled = queue.length === 0;
+
+  // 清空当前队列: starred + history only. Unread hides it (not a disabled button).
+  const clearBtn = $('btnClearCurrent');
+  const showClear = currentView === 'starred' || currentView === 'history';
+  clearBtn.classList.toggle('hidden', !showClear);
+  clearBtn.hidden = !showClear;
+  clearBtn.disabled = !showClear || visible.length === 0;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -328,15 +333,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  $('btnClearHistory').addEventListener('click', async () => {
-    if (!confirm('确定清空历史记录？（未读条目会保留）')) return;
-    await send('clearHistory');
-    await refresh();
-  });
-
-  $('btnClear').addEventListener('click', async () => {
-    if (!confirm('确定清空全部队列（未读 + 历史）？')) return;
-    await send('clearQueue');
+  $('btnClearCurrent').addEventListener('click', async () => {
+    if (currentView !== 'starred' && currentView !== 'history') return;
+    const prompt =
+      currentView === 'starred'
+        ? '确定清空星标队列中的全部条目？'
+        : '确定清空历史队列？';
+    if (!confirm(prompt)) return;
+    await send('clearCurrentView', { view: currentView });
     await refresh();
   });
 

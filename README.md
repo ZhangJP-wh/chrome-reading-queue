@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.1.0**（见 `manifest.json`）
+**版本 / Version:** **2.1.1**（见 `manifest.json`）
 
 ### 一句话场景 / What it’s for
 
@@ -93,7 +93,7 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 | 入队时尽量用页面上看得见的卡片标题 | Prefer visible on-page link/card title at enqueue |
 | 关闭扩展打开的标签后自动开下一条未读 | Closing a queue-opened tab opens the next unread |
 | 可设同时打开的最大标签数（1–5） | Max concurrent tabs (1–5) |
-| 已打开条目进入**历史队列**（灰色）；可清空历史/整队 | Opened items move to **历史队列** (grey); clear history/queue |
+| 已打开条目进入**历史队列**（灰色）。星标与历史页签有红色「清空当前队列」，确认后只删该页签里的条目；未读页签不显示此按钮 | Opened items move to **历史队列** (grey). Starred and history tabs have a red **清空当前队列** that deletes only that tab after confirm; the unread tab hides the button |
 | 顶部三个页签：**未读队列**（仅未读）、**星标队列**（仅未读星标）、**历史队列**（仅已读）。历史页签在星标右侧，灰色与「补全标题」相同 | Three tabs: **未读队列** (unread only), **星标队列** (unread starred only), **历史队列** (read only, to the right of starred, same gray as 补全标题) |
 | 未读/星标卡片「标为已读」只改状态、不打开页面；历史卡片「标为未读」移回未读（星标仍在则也回到星标） | **标为已读** on unread/starred cards sets read without opening a tab; **标为未读** on history sends the item back |
 | 已读且星标的条目仍保留星标，只出现在历史队列（★ 点亮） | Read + starred items keep `starred: true` and appear only in history (★ stays lit) |
@@ -163,7 +163,20 @@ Do not use real browsing history in README/repo screenshots; demos must be redac
 
 ---
 
-## v2.1.0 变更 / Changelog
+## v2.1.1 变更 / Changelog
+
+- 操作行去掉「清空历史」和「清空队列」，改成一颗红色 **清空当前队列**（`class="btn danger"`，外观与原来的「清空队列」相同）  
+  Actions row drops **清空历史** and **清空队列**. One red **清空当前队列** replaces them (`class="btn danger"`, same look as the old clear-queue button)
+- 只在 **星标队列** 和 **历史队列** 显示。**未读队列** 里完全隐藏（不是灰掉的按钮），避免误清空未读  
+  Shown only on **星标队列** and **历史队列**. On **未读队列** it is hidden completely (not a disabled button), so unread cannot be mass-cleared
+- 星标页签确认「确定清空星标队列中的全部条目？」后，只删除当前列表中的未读星标；未读非星标和已读都保留  
+  On the starred tab, confirm 「确定清空星标队列中的全部条目？」 deletes only the unread starred items listed there. Other unread items and read items stay
+- 历史页签确认「确定清空历史队列？」后，删除全部已读（与原来的清空历史相同）。未读一律保留  
+  On the history tab, confirm 「确定清空历史队列？」 deletes every read item (same as the old clear-history). Unread items stay
+- 当前页签没有条目时按钮禁用。后台消息 `clearCurrentView`，`view` 只能是 `starred` 或 `history`  
+  The button is disabled when that tab’s list is empty. Background message is `clearCurrentView` with `view` of `starred` or `history` only
+
+### v2.1.0
 
 - 当前标签的网址已在**未读**队列时，工具栏图标右上角叠加一枚粗荧光绿勾（`#39ff14`，画在蓝色文档图标上）。未读数量徽章不变：仍用 `setBadgeText`，背景保持蓝色 `#2563eb`  
   When the active tab’s URL is already an **unread** item, the toolbar icon shows a thick fluorescent-green check (`#39ff14`) at the top-right of the blue document. The unread count badge is unchanged (`setBadgeText`, blue `#2563eb`)

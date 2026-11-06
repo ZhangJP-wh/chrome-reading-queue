@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "阅读队列 Reading Queue",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "右键把链接或当前页加入阅读队列；未读 / 星标 / 历史三页签；可标为已读或未读；当前页在未读时图标显示绿勾；关闭后按顺序打开下一个。",
   "permissions": [
     "contextMenus",
