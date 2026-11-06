@@ -210,6 +210,7 @@ body {
   gap: 4px;
   max-height: 560px;
   overflow-y: auto;
+  position: relative;
 }
 
 .item {
@@ -223,7 +224,11 @@ body {
   gap: 6px;
   align-items: center;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.16s ease;
+  will-change: transform;
 }
 
 .item:hover {
@@ -430,12 +435,22 @@ body {
   pointer-events: none;
 }
 
+/* Center the line in the opened push-apart gap (~±16px transforms). */
 .item.drop-before::before {
-  top: -5px;
+  top: -20px;
 }
 
 .item.drop-after::after {
-  bottom: -5px;
+  bottom: -20px;
+}
+
+/* Push cards above up / below down so the insert gap is obvious. */
+body.is-reordering .item.shift-up:not(.dragging) {
+  transform: translateY(-16px);
+}
+
+body.is-reordering .item.shift-down:not(.dragging) {
+  transform: translateY(16px);
 }
 
 body.is-reordering {

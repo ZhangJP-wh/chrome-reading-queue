@@ -372,14 +372,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function clearDropMarkers() {
-    $('queueList').querySelectorAll('.item.drop-before, .item.drop-after').forEach((el) => {
-      el.classList.remove('drop-before', 'drop-after');
+    $('queueList').querySelectorAll('.item').forEach((el) => {
+      el.classList.remove('drop-before', 'drop-after', 'shift-up', 'shift-down');
     });
   }
 
   function updateDropMarkers(insertBefore, items) {
     clearDropMarkers();
     if (!items.length) return;
+
+    // Cards above the insert line shift up; cards below shift down → larger gap.
+    items.forEach((el, i) => {
+      if (el.classList.contains('dragging')) return;
+      if (i < insertBefore) el.classList.add('shift-up');
+      else el.classList.add('shift-down');
+    });
+
     if (insertBefore <= 0) {
       items[0].classList.add('drop-before');
     } else if (insertBefore >= items.length) {
@@ -389,10 +397,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Use layout coords (offsetTop) so CSS translateY push-apart does not jitter hit-testing.
   function computeInsertBefore(clientY, items) {
+    const list = $('queueList');
+    const listTop = list.getBoundingClientRect().top;
     for (let i = 0; i < items.length; i++) {
-      const r = items[i].getBoundingClientRect();
-      if (clientY < r.top + r.height / 2) return i;
+      const el = items[i];
+      const top = listTop + el.offsetTop - list.scrollTop;
+      if (clientY < top + el.offsetHeight / 2) return i;
     }
     return items.length;
   }
@@ -448,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ghostEl = item.cloneNode(true);
     ghostEl.classList.add('drag-ghost');
-    ghostEl.classList.remove('dragging', 'drop-before', 'drop-after');
+    ghostEl.classList.remove('dragging', 'drop-before', 'drop-after', 'shift-up', 'shift-down');
     ghostEl.style.width = `${itemRect.width}px`;
     document.body.appendChild(ghostEl);
     placeGhost(e.clientX, e.clientY);

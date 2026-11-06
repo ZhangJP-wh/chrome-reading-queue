@@ -1,5 +1,5 @@
 /**
- * Reading Queue v2.0.5
+ * Reading Queue v2.0.6
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
@@ -7,6 +7,7 @@
  * Order: storage keeps unread oldest-first (append before history) for simple FIFO layout;
  *   popup display sorts newest-addedAt first within unread, then history (also newest-first).
  *   Drag-handle reorder reassigns addedAt within the same read-group (newest-first).
+ *   Drag feedback: neon insert line + cards push apart (shift-up / shift-down) at the gap.
  *   openNext always picks the oldest unread by addedAt — not by on-screen position.
  * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
  */
