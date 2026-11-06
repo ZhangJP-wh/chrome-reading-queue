@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "阅读队列 Reading Queue",
+  "version": "1.8.0",
+  "description": "右键把链接加入阅读队列，优先抓取页面上可见的链接文字/卡片标题；关闭标签页后按顺序自动打开下一个。",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "阅读队列",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
