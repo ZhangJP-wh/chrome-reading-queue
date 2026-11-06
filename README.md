@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.0.4**（见 `manifest.json`）
+**版本 / Version:** **2.0.5**（见 `manifest.json`）
 
 ---
 
@@ -83,7 +83,7 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 | 卡片左侧 ★ 星标收藏；顶部「阅读队列 / 星标队列」页签（均显示数量） | Star ★ on each card; **阅读队列 / 星标队列** tabs (both show counts) |
 | 星标队列页签浅金背景（`#fde68a`；★ 为 `#eab308`） | Starred tab light-gold fill (`#fde68a`; lit ★ `#eab308`) |
 | 最新加入的卡片排在列表上方；打开下一个仍先开最早未读 | Newest cards at top of list; open-next still oldest unread |
-| 拖动手柄（☰）上下拖动排序 | Drag handle (☰) to reorder cards |
+| 拖动手柄（☰）跟手拖动排序；蓝线标插入位置 | Drag handle (☰) glued to cursor; blue insert line |
 | 补全标题：网络静默（不开标签、不抢前台） | Title fill: silent network (no tabs / no focus steal) |
 | 卡片「复制链接」一键复制完整 URL | Card **复制链接** copies full URL |
 | **不会**为取标题抢前台或自动播视频 | **No** focus-steal / autoplay just to fetch titles |
@@ -142,7 +142,16 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
 
 ---
 
-## v2.0.4 变更 / Changelog
+## v2.0.5 变更 / Changelog
+
+- 拖拽改为 **指针拖动 + 自定义幽灵卡片**：☰ 始终贴着鼠标，卡片只轻微浮起、不再漂到弹窗右侧外  
+  Reorder uses **pointer drag + custom ghost**: ☰ stays glued to the cursor; slight lift only (no far-right drift)
+- 落点反馈改为卡片之间的 **荧光蓝插入线**（加长加粗加亮），不再整卡高亮（避免像「合并」）  
+  Drop cue is a **bright neon-blue insertion line** between cards (longer/thicker), not a full-card highlight
+- 排序持久化逻辑不变（同组 `addedAt`）；打开下一个仍是最早未读 FIFO  
+  Persistence unchanged (same-group `addedAt`); open-next stays oldest-unread FIFO
+
+### v2.0.4
 
 - 卡片右侧 ↑↓ 合并为 **拖动手柄**（三条横杠）；按住上下拖动即可排序  
   Per-card ↑↓ replaced by a **drag handle** (three bars); drag to reorder

@@ -6,6 +6,8 @@
   --border: #e2e8f0;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
+  --drop-line: #38bdf8;
+  --drop-line-core: #0ea5e9;
   --danger: #dc2626;
   --danger-bg: #fef2f2;
   --star: #eab308;
@@ -211,6 +213,7 @@ body {
 }
 
 .item {
+  position: relative;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -398,20 +401,66 @@ body {
 }
 
 .item.dragging {
-  opacity: 0.55;
+  opacity: 0.38;
   border-style: dashed;
 }
 
-.item.drag-over {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px #93c5fd;
-  background: #eff6ff;
+/* Neon insertion line between cards (not a full-card highlight). */
+.item.drop-before::before,
+.item.drop-after::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #7dd3fc 0%,
+    var(--drop-line) 18%,
+    var(--drop-line-core) 50%,
+    var(--drop-line) 82%,
+    #7dd3fc 100%
+  );
+  box-shadow:
+    0 0 5px 2px rgba(56, 189, 248, 0.95),
+    0 0 12px 4px rgba(14, 165, 233, 0.7),
+    0 0 20px 6px rgba(37, 99, 235, 0.35);
+  z-index: 6;
+  pointer-events: none;
 }
 
-.item.history.drag-over {
-  background: #e2e8f0;
-  border-color: #94a3b8;
-  box-shadow: none;
+.item.drop-before::before {
+  top: -5px;
+}
+
+.item.drop-after::after {
+  bottom: -5px;
+}
+
+body.is-reordering {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+body.is-reordering * {
+  cursor: grabbing !important;
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  margin: 0;
+  pointer-events: none;
+  list-style: none;
+  opacity: 0.94;
+  transform: scale(1.02);
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.22),
+    0 2px 8px rgba(37, 99, 235, 0.16);
+  border-color: #93c5fd !important;
+  background: #fff !important;
+  cursor: grabbing;
 }
 
 .icon-btn {

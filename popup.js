@@ -226,7 +226,7 @@ async function refresh() {
       </div>
       <div class="item-actions">
         <button type="button" class="drag-handle" data-act="drag" title="拖动排序"
-          aria-label="拖动排序" draggable="true">
+          aria-label="拖动排序">
           <span class="grip" aria-hidden="true"></span>
         </button>
         <button type="button" class="icon-btn delete" data-act="del" title="删除">×</button>
@@ -242,12 +242,15 @@ async function refresh() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  let isDragging = false;
+
   setView('all');
   refresh().then(() => {
     send('refetchWeakTitles', { limit: 50 }).then(() => startTitlePoll(60));
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (isDragging) return;
     if (area === 'local' && (changes.queue || changes.pendingTitleFetches)) {
       refresh();
     }
@@ -354,91 +357,167 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- Drag handle reorder (HTML5) ---
+  // --- Pointer drag reorder (custom ghost + blue insert line) ---
   let dragId = null;
-  let dragOverId = null;
+  let dragFromIndex = -1;
+  let insertBeforeIndex = -1;
   let justDragged = false;
+  let ghostEl = null;
+  let grabOffsetX = 0;
+  let grabOffsetY = 0;
+  let activePointerId = null;
 
-  $('queueList').addEventListener('dragstart', (e) => {
-    const handle = e.target.closest('.drag-handle');
-    const item = e.target.closest('.item');
-    if (!handle || !item) {
-      e.preventDefault();
-      return;
+  function listItems() {
+    return [...$('queueList').querySelectorAll('.item')];
+  }
+
+  function clearDropMarkers() {
+    $('queueList').querySelectorAll('.item.drop-before, .item.drop-after').forEach((el) => {
+      el.classList.remove('drop-before', 'drop-after');
+    });
+  }
+
+  function updateDropMarkers(insertBefore, items) {
+    clearDropMarkers();
+    if (!items.length) return;
+    if (insertBefore <= 0) {
+      items[0].classList.add('drop-before');
+    } else if (insertBefore >= items.length) {
+      items[items.length - 1].classList.add('drop-after');
+    } else {
+      items[insertBefore].classList.add('drop-before');
     }
+  }
+
+  function computeInsertBefore(clientY, items) {
+    for (let i = 0; i < items.length; i++) {
+      const r = items[i].getBoundingClientRect();
+      if (clientY < r.top + r.height / 2) return i;
+    }
+    return items.length;
+  }
+
+  function placeGhost(clientX, clientY) {
+    if (!ghostEl) return;
+    ghostEl.style.left = `${Math.round(clientX - grabOffsetX)}px`;
+    ghostEl.style.top = `${Math.round(clientY - grabOffsetY)}px`;
+  }
+
+  function endDragCleanup() {
+    clearDropMarkers();
+    if (ghostEl) {
+      ghostEl.remove();
+      ghostEl = null;
+    }
+    $('queueList').querySelectorAll('.item.dragging').forEach((el) => {
+      el.classList.remove('dragging');
+    });
+    document.body.classList.remove('is-reordering');
+    isDragging = false;
+    dragId = null;
+    dragFromIndex = -1;
+    insertBeforeIndex = -1;
+    activePointerId = null;
+  }
+
+  $('queueList').addEventListener('pointerdown', (e) => {
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    const item = handle.closest('.item');
+    if (!item || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const items = listItems();
     dragId = item.dataset.id;
-    dragOverId = dragId;
-    item.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', dragId);
-    // Improve drag image slightly
+    dragFromIndex = items.indexOf(item);
+    insertBeforeIndex = dragFromIndex;
+    isDragging = true;
+    justDragged = false;
+    activePointerId = e.pointerId;
     try {
-      e.dataTransfer.setDragImage(item, 24, 16);
+      handle.setPointerCapture(e.pointerId);
     } catch {
       // ignore
     }
+
+    const itemRect = item.getBoundingClientRect();
+    // Keep the grab point (☰ under the cursor) glued to the pointer.
+    grabOffsetX = e.clientX - itemRect.left;
+    grabOffsetY = e.clientY - itemRect.top;
+
+    ghostEl = item.cloneNode(true);
+    ghostEl.classList.add('drag-ghost');
+    ghostEl.classList.remove('dragging', 'drop-before', 'drop-after');
+    ghostEl.style.width = `${itemRect.width}px`;
+    document.body.appendChild(ghostEl);
+    placeGhost(e.clientX, e.clientY);
+
+    item.classList.add('dragging');
+    document.body.classList.add('is-reordering');
+    updateDropMarkers(insertBeforeIndex, items);
   });
 
-  $('queueList').addEventListener('dragend', (e) => {
-    const item = e.target.closest('.item');
-    if (item) item.classList.remove('dragging');
-    $('queueList').querySelectorAll('.item.drag-over').forEach((el) => {
-      el.classList.remove('drag-over');
-    });
-    if (dragId) justDragged = true;
-    dragId = null;
-    dragOverId = null;
+  $('queueList').addEventListener('pointermove', (e) => {
+    if (!isDragging || e.pointerId !== activePointerId) return;
+    e.preventDefault();
+    placeGhost(e.clientX, e.clientY);
+    const items = listItems();
+    insertBeforeIndex = computeInsertBefore(e.clientY, items);
+    updateDropMarkers(insertBeforeIndex, items);
+  });
+
+  async function finishDrag(e) {
+    if (!isDragging) return;
+    if (e && activePointerId != null && e.pointerId !== activePointerId) return;
+
+    const sourceId = dragId;
+    const from = dragFromIndex;
+    const items = listItems();
+    let insertBefore = insertBeforeIndex;
+    if (e && typeof e.clientY === 'number') {
+      insertBefore = computeInsertBefore(e.clientY, items);
+    }
+    const toIndex = insertBefore > from ? insertBefore - 1 : insertBefore;
+
+    endDragCleanup();
+    justDragged = true;
     setTimeout(() => {
       justDragged = false;
     }, 50);
-  });
 
-  $('queueList').addEventListener('dragover', (e) => {
-    const item = e.target.closest('.item');
-    if (!dragId || !item) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const overId = item.dataset.id;
-    if (overId === dragOverId) return;
-    dragOverId = overId;
-    $('queueList').querySelectorAll('.item.drag-over').forEach((el) => {
-      el.classList.remove('drag-over');
-    });
-    if (overId !== dragId) item.classList.add('drag-over');
-  });
-
-  $('queueList').addEventListener('dragleave', (e) => {
-    const item = e.target.closest('.item');
-    if (!item) return;
-    // Only clear when leaving the item entirely
-    if (!item.contains(e.relatedTarget)) {
-      item.classList.remove('drag-over');
-    }
-  });
-
-  $('queueList').addEventListener('drop', async (e) => {
-    e.preventDefault();
-    const item = e.target.closest('.item');
-    const sourceId = dragId || e.dataTransfer.getData('text/plain');
-    if (!item || !sourceId) return;
-    justDragged = true;
-    const targetId = item.dataset.id;
-    item.classList.remove('drag-over');
-    const items = [...$('queueList').querySelectorAll('.item')];
-    const from = items.findIndex((el) => el.dataset.id === sourceId);
-    const to = items.findIndex((el) => el.dataset.id === targetId);
-    dragId = null;
-    dragOverId = null;
-    if (from < 0 || to < 0 || from === to) {
-      await refresh();
+    if (!sourceId || from < 0 || toIndex < 0 || from === toIndex) {
+      try {
+        await refresh();
+      } catch {
+        // popup closed
+      }
       return;
     }
     await send('reorderItem', {
-      id: items[from].dataset.id,
-      toIndex: to,
+      id: sourceId,
+      toIndex,
       amongStarred: currentView === 'starred'
     });
-    await refresh();
+    try {
+      await refresh();
+    } catch {
+      // popup closed
+    }
+  }
+
+  $('queueList').addEventListener('pointerup', (e) => {
+    finishDrag(e);
+  });
+
+  $('queueList').addEventListener('pointercancel', (e) => {
+    if (!isDragging || e.pointerId !== activePointerId) return;
+    endDragCleanup();
+    justDragged = true;
+    setTimeout(() => {
+      justDragged = false;
+    }, 50);
+    refresh();
   });
 
 });
