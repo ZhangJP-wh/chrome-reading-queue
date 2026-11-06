@@ -1,9 +1,12 @@
 /**
- * Reading Queue v2.0.2
+ * Reading Queue v2.0.3
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
  * Star items + dual popup tabs (全部 / 星标队列).
+ * Order: storage keeps unread oldest-first (append before history) for simple FIFO layout;
+ *   popup display sorts newest-addedAt first within unread, then history (also newest-first).
+ *   openNext always picks the oldest unread by addedAt — not by on-screen position.
  * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
  */
 
@@ -35,12 +38,48 @@ function unreadCount(queue) {
   return queue.filter((i) => !isRead(i)).length;
 }
 
+function itemAddedAt(item) {
+  const n = Number(item && item.addedAt);
+  if (Number.isFinite(n) && n > 0) return n;
+  const fromId = Number(String((item && item.id) || '').split('-')[0]);
+  return Number.isFinite(fromId) && fromId > 0 ? fromId : 0;
+}
+
 function normalizeQueueItems(queue) {
   return (Array.isArray(queue) ? queue : []).map((item) => ({
     ...item,
     read: Boolean(item.read),
-    starred: Boolean(item.starred)
+    starred: Boolean(item.starred),
+    addedAt: itemAddedAt(item)
   }));
+}
+
+/**
+ * Display order (popup / starred tab): unread first, then history;
+ * within each group, newest addedAt at the TOP.
+ * Storage may stay oldest-unread-first for enqueue; do not use this order for openNext.
+ */
+function sortQueueForDisplay(queue) {
+  const unread = [];
+  const history = [];
+  for (const item of Array.isArray(queue) ? queue : []) {
+    if (isRead(item)) history.push(item);
+    else unread.push(item);
+  }
+  const byNewest = (a, b) => itemAddedAt(b) - itemAddedAt(a);
+  unread.sort(byNewest);
+  history.sort(byNewest);
+  return [...unread, ...history];
+}
+
+/** Oldest unread by addedAt — FIFO consume, independent of display order. */
+function findOldestUnread(queue) {
+  let best = null;
+  for (const item of Array.isArray(queue) ? queue : []) {
+    if (isRead(item)) continue;
+    if (!best || itemAddedAt(item) < itemAddedAt(best)) best = item;
+  }
+  return best;
 }
 
 function starredCount(queue) {
@@ -968,6 +1007,8 @@ async function enqueue({ url, title, fetchTitle = true }) {
     starred: false
   };
 
+  // Storage: append among unread (before history) so unread stays oldest→newest in array.
+  // Popup shows newest-first via sortQueueForDisplay; openNext uses findOldestUnread.
   const firstHist = queue.findIndex((i) => isRead(i));
   const next =
     firstHist < 0
@@ -1030,9 +1071,10 @@ async function openItemById(itemId, { force = true } = {}) {
 
 async function openNext({ force = false } = {}) {
   const { queue } = await getState();
-  const idx = queue.findIndex((i) => !isRead(i));
-  if (idx < 0) return { ok: false, reason: 'empty' };
-  return openItemById(queue[idx].id, { force });
+  // FIFO: oldest unread by addedAt (not top-of-popup / newest).
+  const oldest = findOldestUnread(queue);
+  if (!oldest) return { ok: false, reason: 'empty' };
+  return openItemById(oldest.id, { force });
 }
 
 async function fillToMax() {
@@ -1158,7 +1200,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           const state = await getState();
           sendResponse({
             ok: true,
-            queue: state.queue,
+            // Newest-added first within unread, then history (see sortQueueForDisplay).
+            queue: sortQueueForDisplay(state.queue),
             maxActiveTabs: state.maxActiveTabs,
             activeCount: activeTabIds.size,
             activeQueueTabIds: [...activeTabIds],
@@ -1242,40 +1285,37 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
         case 'moveItem': {
           const { queue } = await getState();
-          const idx = queue.findIndex((i) => i.id === message.id);
-          if (idx < 0) {
-            sendResponse({ ok: false, reason: 'not_found' });
+          const id = message.id;
+          const scope = message.amongStarred
+            ? queue.filter((i) => i.starred)
+            : queue;
+          const display = sortQueueForDisplay(scope);
+          const pos = display.findIndex((i) => i.id === id);
+          if (pos < 0) {
+            sendResponse({
+              ok: false,
+              reason: message.amongStarred ? 'not_starred' : 'not_found'
+            });
             break;
           }
           const dir = message.direction === 'up' ? -1 : 1;
-          let j = -1;
-          if (message.amongStarred) {
-            const starredIdx = [];
-            queue.forEach((it, i) => {
-              if (it.starred) starredIdx.push(i);
-            });
-            const pos = starredIdx.indexOf(idx);
-            if (pos < 0) {
-              sendResponse({ ok: false, reason: 'not_starred' });
-              break;
-            }
-            const npos = pos + dir;
-            if (npos < 0 || npos >= starredIdx.length) {
-              sendResponse({ ok: true, queue });
-              break;
-            }
-            j = starredIdx[npos];
-          } else {
-            j = idx + dir;
-            if (j < 0 || j >= queue.length) {
-              sendResponse({ ok: true, queue });
-              break;
-            }
+          const npos = pos + dir;
+          if (npos < 0 || npos >= display.length) {
+            sendResponse({ ok: true, queue: sortQueueForDisplay(queue) });
+            break;
           }
-          const next = [...queue];
-          [next[idx], next[j]] = [next[j], next[idx]];
+          // Display is newest-first by addedAt; swap timestamps so ↑/↓ match the list.
+          const a = display[pos];
+          const b = display[npos];
+          const aAt = itemAddedAt(a);
+          const bAt = itemAddedAt(b);
+          const next = queue.map((item) => {
+            if (item.id === a.id) return { ...item, addedAt: bAt };
+            if (item.id === b.id) return { ...item, addedAt: aAt };
+            return item;
+          });
           await setQueue(next);
-          sendResponse({ ok: true, queue: next });
+          sendResponse({ ok: true, queue: sortQueueForDisplay(next) });
           break;
         }
         case 'setMaxActiveTabs': {

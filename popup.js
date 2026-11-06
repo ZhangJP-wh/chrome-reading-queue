@@ -184,6 +184,7 @@ async function refresh() {
   setBadge($('allCountBadge'), queue.length);
   setBadge($('starredCountBadge'), starredTotal);
 
+  // getState already returns display order: newest addedAt first within unread, then history.
   const visible =
     currentView === 'starred' ? queue.filter((i) => i.starred) : queue;
 

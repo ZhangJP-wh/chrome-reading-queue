@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.0.2**（见 `manifest.json`）
+**版本 / Version:** **2.0.3**（见 `manifest.json`）
 
 ---
 
@@ -82,6 +82,7 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 | 已打开条目变灰进历史；可清空历史/整队 | Opened items become grey history; clear history/queue |
 | 卡片左侧 ★ 星标收藏；顶部「阅读队列 / 星标队列」页签（均显示数量） | Star ★ on each card; **阅读队列 / 星标队列** tabs (both show counts) |
 | 星标队列页签浅金背景（`#fde68a`；★ 为 `#eab308`） | Starred tab light-gold fill (`#fde68a`; lit ★ `#eab308`) |
+| 最新加入的卡片排在列表上方；打开下一个仍先开最早未读 | Newest cards at top of list; open-next still oldest unread |
 | 补全标题：网络静默（不开标签、不抢前台） | Title fill: silent network (no tabs / no focus steal) |
 | 卡片「复制链接」一键复制完整 URL | Card **复制链接** copies full URL |
 | **不会**为取标题抢前台或自动播视频 | **No** focus-steal / autoplay just to fetch titles |
@@ -140,7 +141,14 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
 
 ---
 
-## v2.0.2 变更 / Changelog
+## v2.0.3 变更 / Changelog
+
+- 列表按 **添加时间** 排序：最新加入的在最上方（未读一组内、历史一组内皆如此；星标页签同理）  
+  List sorted by **addedAt**: newest on top (within unread, then within history; starred tab same)
+- 「打开下一个」仍按最早未读 FIFO 消费，与屏幕上下位置无关  
+  **打开下一个** still consumes oldest unread (FIFO), independent of on-screen order
+
+### v2.0.2
 
 - **星标队列**页签背景改为浅金 `#fde68a`（`--star-tab`），黑字更易读；点亮 ★ 仍为 `#eab308`  
   **星标队列** tab fill lightened to `#fde68a` (`--star-tab`) for black-text contrast; lit ★ stays `#eab308`
