@@ -1,5 +1,5 @@
 /**
- * Reading Queue v2.0.6
+ * Reading Queue v2.0.7
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.

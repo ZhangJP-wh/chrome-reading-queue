@@ -5,7 +5,25 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.0.6**（见 `manifest.json`）
+**版本 / Version:** **2.0.7**（见 `manifest.json`）
+
+### 一句话场景 / What it’s for
+
+- 刷到好链接先入队，不必一次开几十个标签  
+  Save interesting links first — don’t open dozens of tabs at once
+- 关掉当前页后自动打开下一条未读  
+  Closing a queue tab opens the next unread
+- ★ 星标收藏；「阅读队列 / 星标队列」双页签  
+  ★ Star favorites; **阅读队列 / 星标队列** tabs
+- ☰ 拖拽排序；最新加入的在最上面  
+  ☰ Drag to reorder; newest cards stay on top
+
+## 截图 / Screenshots
+
+扩展弹窗一览（阅读队列列表、星标、操作按钮）：  
+Extension popup overview (queue list, stars, actions):
+
+![阅读队列弹窗 / Reading Queue popup](docs/screenshots/popup-overview.png)
 
 ---
 
@@ -142,7 +160,12 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
 
 ---
 
-## v2.0.6 变更 / Changelog
+## v2.0.7 变更 / Changelog
+
+- README 文首补充**一句话场景**与**弹窗示意图**（`docs/screenshots/popup-overview.png`），方便陌生人一眼看懂本项目  
+  README: lead with **use-case bullets** + **popup screenshot** so strangers understand the project at a glance
+
+### v2.0.6
 
 - 落点蓝线处，上方卡片整体上移、下方卡片整体下移，**挤开更大空隙**，插入位置更直观  
   At the insert line, cards above shift up and cards below shift down to **open a clear gap**
