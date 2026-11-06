@@ -9,7 +9,14 @@
 <body>
   <header class="header">
     <div>
-      <h1>阅读队列</h1>
+      <div class="tabs" role="tablist" aria-label="队列视图">
+        <button type="button" id="tabAll" class="tab active" role="tab" aria-selected="true" data-view="all">
+          阅读队列
+        </button>
+        <button type="button" id="tabStarred" class="tab tab-star" role="tab" aria-selected="false" data-view="starred">
+          星标队列<span id="starredCountBadge" class="tab-badge hidden"></span>
+        </button>
+      </div>
       <p class="sub" id="statusLine">加载中…</p>
     </div>
     <label class="max-setting" title="同时打开的队列标签页上限">
@@ -37,7 +44,7 @@
   <p id="emptyHint" class="empty hidden">队列是空的。在链接上右键 →「将此链接加入到阅读队列」，或在网页空白处右键 →「将当前页加入到阅读队列」。点击条目可打开为当前标签。</p>
 
   <footer class="footer">
-    点击条目打开并设为当前标签；打开后变灰色历史。关闭扩展打开的标签会自动开下一条未读。
+    点击条目打开并设为当前标签；打开后变灰色历史。点 ★ 收藏到星标队列。关闭扩展打开的标签会自动开下一条未读。
   </footer>
 
   <script src="popup.js"></script>

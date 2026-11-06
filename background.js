@@ -1,8 +1,9 @@
 /**
- * Reading Queue v1.9.1
+ * Reading Queue v2.0.0
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
+ * Star items + dual popup tabs (全部 / 星标队列).
  * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
  */
 
@@ -37,8 +38,13 @@ function unreadCount(queue) {
 function normalizeQueueItems(queue) {
   return (Array.isArray(queue) ? queue : []).map((item) => ({
     ...item,
-    read: Boolean(item.read)
+    read: Boolean(item.read),
+    starred: Boolean(item.starred)
   }));
+}
+
+function starredCount(queue) {
+  return queue.filter((i) => Boolean(i && i.starred)).length;
 }
 
 async function getState() {
@@ -958,7 +964,8 @@ async function enqueue({ url, title, fetchTitle = true }) {
     url: clean,
     title: resolved,
     addedAt: Date.now(),
-    read: false
+    read: false,
+    starred: false
   };
 
   const firstHist = queue.findIndex((i) => isRead(i));
@@ -1158,6 +1165,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             softMax: SOFT_MAX_QUEUE,
             unread: unreadCount(state.queue),
             history: state.queue.filter(isRead).length,
+            starred: starredCount(state.queue),
             pendingTitles: state.pendingTitleFetches.length,
             titleFetchDebug: state.titleFetchDebug
           });
@@ -1206,6 +1214,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({ ok: true });
           break;
         }
+        case 'toggleStar': {
+          const { queue } = await getState();
+          const idx = queue.findIndex((i) => i.id === message.id);
+          if (idx < 0) {
+            sendResponse({ ok: false, reason: 'not_found' });
+            break;
+          }
+          const next = [...queue];
+          const cur = next[idx];
+          next[idx] = { ...cur, starred: !Boolean(cur.starred) };
+          await setQueue(next);
+          sendResponse({
+            ok: true,
+            item: next[idx],
+            starred: next[idx].starred,
+            starredCount: starredCount(next)
+          });
+          break;
+        }
         case 'removeItem': {
           const { queue } = await getState();
           await setQueue(queue.filter((i) => i.id !== message.id));
@@ -1221,10 +1248,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             break;
           }
           const dir = message.direction === 'up' ? -1 : 1;
-          const j = idx + dir;
-          if (j < 0 || j >= queue.length) {
-            sendResponse({ ok: true, queue });
-            break;
+          let j = -1;
+          if (message.amongStarred) {
+            const starredIdx = [];
+            queue.forEach((it, i) => {
+              if (it.starred) starredIdx.push(i);
+            });
+            const pos = starredIdx.indexOf(idx);
+            if (pos < 0) {
+              sendResponse({ ok: false, reason: 'not_starred' });
+              break;
+            }
+            const npos = pos + dir;
+            if (npos < 0 || npos >= starredIdx.length) {
+              sendResponse({ ok: true, queue });
+              break;
+            }
+            j = starredIdx[npos];
+          } else {
+            j = idx + dir;
+            if (j < 0 || j >= queue.length) {
+              sendResponse({ ok: true, queue });
+              break;
+            }
           }
           const next = [...queue];
           [next[idx], next[j]] = [next[j], next[idx]];

@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **1.9.1**（见 `manifest.json`）
+**版本 / Version:** **2.0.0**（见 `manifest.json`）
 
 ---
 
@@ -80,6 +80,7 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 | 关闭扩展打开的标签后自动开下一条未读 | Closing a queue-opened tab opens the next unread |
 | 可设同时打开的最大标签数（1–5） | Max concurrent tabs (1–5) |
 | 已打开条目变灰进历史；可清空历史/整队 | Opened items become grey history; clear history/queue |
+| 卡片左侧 ★ 星标收藏；顶部「星标队列」页签 | Star ★ on each card; **星标队列** tab for starred only |
 | 补全标题：网络静默；可选「从已打开标签补标题」 | Title fill: silent network; optional “from open tabs” |
 | **不会**为取标题抢前台或自动播视频 | **No** focus-steal / autoplay just to fetch titles |
 
@@ -137,7 +138,16 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
 
 ---
 
-## v1.9.1 变更 / Changelog
+## v2.0.0 变更 / Changelog
+
+- 新增：每条卡片标题前 ★ / ☆ 星标按钮（点星不打开条目；状态持久化 `starred`）  
+  New: ★/☆ star button before each title (does not open the item; persists `starred`)
+- 新增顶部页签：**阅读队列**（全部）与 **星标队列**（仅星标；未读在前、历史在后；激活时金色背景）  
+  New header tabs: **阅读队列** (all) and **星标队列** (starred only; unread then history; gold when active)
+- 清空历史 / 清空队列仍会删掉被清掉的条目（含星标）  
+  Clear history / clear queue still deletes removed items (including starred ones)
+
+### v1.9.1
 
 - 新增：网页空白处 / frame 右键 → **将当前页加入到阅读队列**（`tab.url` + 清理后的 `tab.title`；标题够强则不再联网抓）  
   New: page/frame right-click → **将当前页加入到阅读队列** (`tab.url` + cleaned `tab.title`; skip network when title is strong)

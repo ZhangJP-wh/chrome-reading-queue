@@ -69,7 +69,6 @@ function formatDebugHint(debug) {
   else if (err) tip = `调试: ${err.slice(0, 55)}`;
   else if (stage) tip = `调试: ${stage.slice(0, 40)}`;
   if (!tip) return '';
-  // Keep tip short; tip about CN / no tab steal sits in status when weak titles remain
   return tip;
 }
 
@@ -104,6 +103,19 @@ async function copyText(text) {
 }
 
 let pollTimer = null;
+/** @type {'all' | 'starred'} */
+let currentView = 'all';
+
+function setView(view) {
+  currentView = view === 'starred' ? 'starred' : 'all';
+  const tabAll = $('tabAll');
+  const tabStarred = $('tabStarred');
+  const isStarred = currentView === 'starred';
+  tabAll.classList.toggle('active', !isStarred);
+  tabStarred.classList.toggle('active', isStarred);
+  tabAll.setAttribute('aria-selected', String(!isStarred));
+  tabStarred.setAttribute('aria-selected', String(isStarred));
+}
 
 function startTitlePoll(seconds = 90) {
   if (pollTimer) clearInterval(pollTimer);
@@ -119,7 +131,6 @@ function startTitlePoll(seconds = 90) {
       if (!st || pendingLeft === 0 || n >= max) {
         clearInterval(pollTimer);
         pollTimer = null;
-        // One more refresh so status can show lastRawTitle / error after jobs drain
         await refresh();
       }
     } catch {
@@ -142,8 +153,11 @@ async function refresh() {
   const cap = softMax || 500;
   const u = unread != null ? unread : queue.filter((i) => !i.read).length;
   const h = history != null ? history : queue.filter((i) => i.read).length;
+  const starredTotal =
+    state.starred != null ? state.starred : queue.filter((i) => i.starred).length;
   const pending = pendingTitles || 0;
   let status = `未读 ${u} · 历史 ${h} · ${queue.length}/${cap} · 已开 ${activeCount}/${maxActiveTabs}`;
+  if (starredTotal > 0) status += ` · 星标 ${starredTotal}`;
   if (pending > 0) status += ` · 正在抓取标题 ${pending}`;
   const unreadWeak = queue.filter((i) => !i.read && looksWeakTitle(i));
   if (pending === 0 && unreadWeak.length > 0) {
@@ -157,17 +171,33 @@ async function refresh() {
   }
   $('statusLine').textContent = status;
 
+  const badge = $('starredCountBadge');
+  if (starredTotal > 0) {
+    badge.textContent = String(starredTotal > 99 ? '99+' : starredTotal);
+    badge.classList.remove('hidden');
+  } else {
+    badge.textContent = '';
+    badge.classList.add('hidden');
+  }
+
+  const visible =
+    currentView === 'starred' ? queue.filter((i) => i.starred) : queue;
+
   const list = $('queueList');
   const empty = $('emptyHint');
   list.innerHTML = '';
 
-  if (!queue.length) {
+  if (!visible.length) {
     empty.classList.remove('hidden');
+    empty.textContent =
+      currentView === 'starred'
+        ? '还没有星标条目。点卡片左侧 ★ 即可收藏到星标队列。'
+        : '队列是空的。在链接上右键 →「将此链接加入到阅读队列」，或在网页空白处右键 →「将当前页加入到阅读队列」。点击条目可打开为当前标签。';
   } else {
     empty.classList.add('hidden');
   }
 
-  queue.forEach((item, index) => {
+  visible.forEach((item, index) => {
     const li = document.createElement('li');
     li.className = 'item' + (item.read ? ' history' : '');
     li.dataset.id = item.id;
@@ -175,9 +205,15 @@ async function refresh() {
     li.title = '点击打开为当前标签页';
 
     const title = displayTitle(item);
+    const lit = Boolean(item.starred);
     li.innerHTML = `
       <div class="item-main">
-        <p class="title" title="${escapeHtml(title)}">${escapeHtml(title)}</p>
+        <div class="title-row">
+          <button type="button" class="star-btn${lit ? ' lit' : ''}" data-act="star"
+            title="${lit ? '取消星标' : '加星标'}" aria-label="${lit ? '取消星标' : '加星标'}"
+            aria-pressed="${lit ? 'true' : 'false'}">${lit ? '★' : '☆'}</button>
+          <p class="title" title="${escapeHtml(title)}">${escapeHtml(title)}</p>
+        </div>
         <div class="url-row">
           <p class="url" title="${escapeHtml(item.url)}">${escapeHtml(shortUrl(item.url))}</p>
           <button type="button" class="copy-btn" data-act="copy" title="复制完整链接">复制</button>
@@ -185,7 +221,7 @@ async function refresh() {
       </div>
       <div class="item-actions">
         <button type="button" class="icon-btn" data-act="up" title="上移" ${index === 0 ? 'disabled' : ''}>↑</button>
-        <button type="button" class="icon-btn" data-act="down" title="下移" ${index === queue.length - 1 ? 'disabled' : ''}>↓</button>
+        <button type="button" class="icon-btn" data-act="down" title="下移" ${index === visible.length - 1 ? 'disabled' : ''}>↓</button>
         <button type="button" class="icon-btn delete" data-act="del" title="删除">×</button>
       </div>
     `;
@@ -199,6 +235,7 @@ async function refresh() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  setView('all');
   refresh().then(() => {
     send('refetchWeakTitles', { limit: 50 }).then(() => startTitlePoll(60));
   });
@@ -207,6 +244,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (area === 'local' && (changes.queue || changes.pendingTitleFetches)) {
       refresh();
     }
+  });
+
+  $('tabAll').addEventListener('click', async () => {
+    setView('all');
+    await refresh();
+  });
+
+  $('tabStarred').addEventListener('click', async () => {
+    setView('starred');
+    await refresh();
   });
 
   $('btnOpenNext').addEventListener('click', async () => {
@@ -280,6 +327,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const id = item.dataset.id;
       const act = btn.dataset.act;
 
+      if (act === 'star') {
+        await send('toggleStar', { id });
+        await refresh();
+        return;
+      }
       if (act === 'copy') {
         const ok = await copyText(item.dataset.url || '');
         const prev = btn.textContent;
@@ -291,8 +343,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
         return;
       }
-      if (act === 'up') await send('moveItem', { id, direction: 'up' });
-      if (act === 'down') await send('moveItem', { id, direction: 'down' });
+      if (act === 'up') {
+        await send('moveItem', {
+          id,
+          direction: 'up',
+          amongStarred: currentView === 'starred'
+        });
+      }
+      if (act === 'down') {
+        await send('moveItem', {
+          id,
+          direction: 'down',
+          amongStarred: currentView === 'starred'
+        });
+      }
       if (act === 'del') await send('removeItem', { id });
       await refresh();
       return;
