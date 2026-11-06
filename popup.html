@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>阅读队列</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <div>
+      <h1>阅读队列</h1>
+      <p class="sub" id="statusLine">加载中…</p>
+    </div>
+    <label class="max-setting" title="同时打开的队列标签页上限">
+      最大标签
+      <select id="maxActive" aria-label="最大活动标签数">
+        <option value="1">1</option>
+        <option value="2" selected>2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+    </label>
+  </header>
+
+  <div class="actions">
+    <button type="button" id="btnOpenNext" class="btn primary">打开下一个</button>
+    <button type="button" id="btnFill" class="btn">填满额度</button>
+    <button type="button" id="btnRefetchTitles" class="btn muted" title="仅通过网络静默取标题，不会开标签页">补全标题</button>
+    <button type="button" id="btnFromOpenTabs" class="btn muted" title="只读取已经打开的标签页标题，不会新建标签">从已打开标签补标题</button>
+    <button type="button" id="btnClearHistory" class="btn muted">清空历史</button>
+    <button type="button" id="btnClear" class="btn danger">清空队列</button>
+  </div>
+
+  <ul id="queueList" class="queue" aria-live="polite"></ul>
+  <p id="emptyHint" class="empty hidden">队列是空的。在链接上右键 →「将此链接加入到阅读队列」，或在网页空白处右键 →「将当前页加入到阅读队列」。点击条目可打开为当前标签。</p>
+
+  <footer class="footer">
+    点击条目打开并设为当前标签；打开后变灰色历史。关闭扩展打开的标签会自动开下一条未读。
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
