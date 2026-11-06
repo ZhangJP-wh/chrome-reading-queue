@@ -1,3 +1,8 @@
+/**
+ * Popup for Reading Queue v2.0.9.
+ * Tabs: 未读队列 (unread), 星标队列 (unread + starred), 历史队列 (read).
+ * 标为已读 / 标为未读 update read state and do not open a tab.
+ */
 function $(id) {
   return document.getElementById(id);
 }
@@ -103,18 +108,42 @@ async function copyText(text) {
 }
 
 let pollTimer = null;
-/** @type {'all' | 'starred'} */
-let currentView = 'all';
+/** @type {'unread' | 'starred' | 'history'} */
+let currentView = 'unread';
 
 function setView(view) {
-  currentView = view === 'starred' ? 'starred' : 'all';
-  const tabAll = $('tabAll');
-  const tabStarred = $('tabStarred');
-  const isStarred = currentView === 'starred';
-  tabAll.classList.toggle('active', !isStarred);
-  tabStarred.classList.toggle('active', isStarred);
-  tabAll.setAttribute('aria-selected', String(!isStarred));
-  tabStarred.setAttribute('aria-selected', String(isStarred));
+  currentView =
+    view === 'starred' || view === 'history' ? view : 'unread';
+  const tabs = [
+    ['tabUnread', 'unread'],
+    ['tabStarred', 'starred'],
+    ['tabHistory', 'history']
+  ];
+  for (const [id, name] of tabs) {
+    const el = $(id);
+    if (!el) continue;
+    const on = currentView === name;
+    el.classList.toggle('active', on);
+    el.setAttribute('aria-selected', String(on));
+  }
+}
+
+function visibleItems(queue) {
+  if (currentView === 'starred') {
+    return queue.filter((i) => i.starred && !i.read);
+  }
+  if (currentView === 'history') return queue.filter((i) => i.read);
+  return queue.filter((i) => !i.read);
+}
+
+function emptyHintForView() {
+  if (currentView === 'starred') {
+    return '还没有未读星标。在未读队列里点卡片左侧 ★，即可把未读条目收进星标队列。';
+  }
+  if (currentView === 'history') {
+    return '还没有历史。打开条目，或在未读/星标卡片上点「标为已读」，就会出现在这里。';
+  }
+  return '未读队列是空的。在链接上右键 →「加入阅读队列」。点击条目可打开为当前标签。';
 }
 
 function startTitlePoll(seconds = 90) {
@@ -153,11 +182,10 @@ async function refresh() {
   const cap = softMax || 500;
   const u = unread != null ? unread : queue.filter((i) => !i.read).length;
   const h = history != null ? history : queue.filter((i) => i.read).length;
-  const starredTotal =
-    state.starred != null ? state.starred : queue.filter((i) => i.starred).length;
+  const starredVisible = queue.filter((i) => i.starred && !i.read).length;
   const pending = pendingTitles || 0;
   let status = `未读 ${u} · 历史 ${h} · ${queue.length}/${cap} · 已开 ${activeCount}/${maxActiveTabs}`;
-  if (starredTotal > 0) status += ` · 星标 ${starredTotal}`;
+  if (starredVisible > 0) status += ` · 星标 ${starredVisible}`;
   if (pending > 0) status += ` · 正在抓取标题 ${pending}`;
   const unreadWeak = queue.filter((i) => !i.read && looksWeakTitle(i));
   if (pending === 0 && unreadWeak.length > 0) {
@@ -181,12 +209,13 @@ async function refresh() {
       el.classList.add('hidden');
     }
   }
-  setBadge($('allCountBadge'), queue.length);
-  setBadge($('starredCountBadge'), starredTotal);
+  setBadge($('unreadCountBadge'), u);
+  setBadge($('starredCountBadge'), starredVisible);
+  setBadge($('historyCountBadge'), h);
 
-  // getState already returns display order: newest addedAt first within unread, then history.
-  const visible =
-    currentView === 'starred' ? queue.filter((i) => i.starred) : queue;
+  // getState returns display order: newest addedAt first within unread, then history.
+  // Each tab shows one slice of that order.
+  const visible = visibleItems(queue);
 
   const list = $('queueList');
   const empty = $('emptyHint');
@@ -194,10 +223,7 @@ async function refresh() {
 
   if (!visible.length) {
     empty.classList.remove('hidden');
-    empty.textContent =
-      currentView === 'starred'
-        ? '还没有星标条目。点卡片左侧 ★ 即可收藏到星标队列。'
-        : '队列是空的。在链接上右键 →「加入阅读队列」。点击条目可打开为当前标签。';
+    empty.textContent = emptyHintForView();
   } else {
     empty.classList.add('hidden');
   }
@@ -211,6 +237,9 @@ async function refresh() {
 
     const title = displayTitle(item);
     const lit = Boolean(item.starred);
+    const markBtn = item.read
+      ? `<button type="button" class="mark-btn mark-unread" data-act="mark-unread" title="标为未读，不打开页面">标为未读</button>`
+      : `<button type="button" class="mark-btn mark-read" data-act="mark-read" title="标为已读，不打开页面">标为已读</button>`;
     li.innerHTML = `
       <div class="item-main">
         <div class="title-row">
@@ -221,6 +250,7 @@ async function refresh() {
         </div>
         <div class="url-row">
           <p class="url" title="${escapeHtml(item.url)}">${escapeHtml(shortUrl(item.url))}</p>
+          ${markBtn}
           <button type="button" class="copy-btn" data-act="copy" title="复制完整链接">复制链接</button>
         </div>
       </div>
@@ -244,7 +274,7 @@ async function refresh() {
 document.addEventListener('DOMContentLoaded', () => {
   let isDragging = false;
 
-  setView('all');
+  setView('unread');
   refresh().then(() => {
     send('refetchWeakTitles', { limit: 50 }).then(() => startTitlePoll(60));
   });
@@ -256,13 +286,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  $('tabAll').addEventListener('click', async () => {
-    setView('all');
+  $('tabUnread').addEventListener('click', async () => {
+    setView('unread');
     await refresh();
   });
 
   $('tabStarred').addEventListener('click', async () => {
     setView('starred');
+    await refresh();
+  });
+
+  $('tabHistory').addEventListener('click', async () => {
+    setView('history');
     await refresh();
   });
 
@@ -324,6 +359,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (act === 'star') {
         await send('toggleStar', { id });
+        await refresh();
+        return;
+      }
+      if (act === 'mark-read') {
+        await send('markRead', { id });
+        await refresh();
+        return;
+      }
+      if (act === 'mark-unread') {
+        await send('markUnread', { id });
         await refresh();
         return;
       }
@@ -509,6 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await send('reorderItem', {
       id: sourceId,
       toIndex,
+      view: currentView,
       amongStarred: currentView === 'starred'
     });
     try {

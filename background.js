@@ -1,12 +1,14 @@
 /**
- * Reading Queue v2.0.6
+ * Reading Queue v2.0.9
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
- * Star items + dual popup tabs (全部 / 星标队列).
+ * Popup tabs: 未读队列 (unread only), 星标队列 (unread + starred), 历史队列 (read only).
+ * markRead / markUnread / setRead flip read state without opening a tab.
+ * Read + starred items keep starred:true and show only under 历史队列.
  * Order: storage keeps unread oldest-first (append before history) for simple FIFO layout;
- *   popup display sorts newest-addedAt first within unread, then history (also newest-first).
- *   Drag-handle reorder reassigns addedAt within the same read-group (newest-first).
+ *   popup display sorts newest addedAt first within each tab's visible list.
+ *   Drag-handle reorder reassigns addedAt inside that tab's visible list (same read-group).
  *   Drag feedback: neon insert line + cards push apart (shift-up / shift-down) at the gap.
  *   openNext always picks the oldest unread by addedAt — not by on-screen position.
  * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
@@ -57,8 +59,9 @@ function normalizeQueueItems(queue) {
 }
 
 /**
- * Display order (popup / starred tab): unread first, then history;
+ * Display order: unread first, then history;
  * within each group, newest addedAt at the TOP.
+ * Popup tabs filter this list (unread / unread-starred / history).
  * Storage may stay oldest-unread-first for enqueue; do not use this order for openNext.
  */
 function sortQueueForDisplay(queue) {
@@ -84,8 +87,78 @@ function findOldestUnread(queue) {
   return best;
 }
 
+/**
+ * 星标队列 badge / status count: starred and still unread.
+ * Read items may keep starred:true; they are listed only under 历史队列.
+ */
 function starredCount(queue) {
-  return queue.filter((i) => Boolean(i && i.starred)).length;
+  return queue.filter((i) => Boolean(i && i.starred) && !isRead(i)).length;
+}
+
+/**
+ * Visible drag list for one popup tab.
+ * view unread | starred | history matches the three tabs.
+ * Legacy amongStarred (no view) is every starred item, read or not.
+ * No view and not amongStarred: full queue (unread then history).
+ */
+function reorderScope(queue, message) {
+  const list = Array.isArray(queue) ? queue : [];
+  const view = message && message.view;
+  if (view === 'history') return list.filter((i) => isRead(i));
+  if (view === 'starred') return list.filter((i) => i.starred && !isRead(i));
+  if (view === 'unread') return list.filter((i) => !isRead(i));
+  if (message && message.amongStarred) return list.filter((i) => i.starred);
+  return list;
+}
+
+/**
+ * Set read without opening a tab. Keeps storage as unread-block then history-block.
+ * Marking read sets openedAt (same field openItem uses). Marking unread drops openedAt.
+ * starred is left unchanged.
+ */
+async function setItemRead(itemId, read) {
+  const { queue } = await getState();
+  const idx = queue.findIndex((i) => i.id === itemId);
+  if (idx < 0) return { ok: false, reason: 'not_found' };
+  const cur = queue[idx];
+  const want = Boolean(read);
+  if (isRead(cur) === want && (want ? cur.openedAt : cur.openedAt == null)) {
+    return {
+      ok: true,
+      item: cur,
+      unchanged: true,
+      unread: unreadCount(queue),
+      history: queue.filter(isRead).length,
+      starred: starredCount(queue)
+    };
+  }
+  const remaining = [...queue.slice(0, idx), ...queue.slice(idx + 1)];
+  let nextItem;
+  let nextQueue;
+  if (want) {
+    nextItem = { ...cur, read: true, openedAt: Date.now() };
+    nextQueue = [...remaining, nextItem];
+  } else {
+    nextItem = { ...cur, read: false };
+    delete nextItem.openedAt;
+    const firstHist = remaining.findIndex((i) => isRead(i));
+    nextQueue =
+      firstHist < 0
+        ? [...remaining, nextItem]
+        : [
+            ...remaining.slice(0, firstHist),
+            nextItem,
+            ...remaining.slice(firstHist)
+          ];
+  }
+  await setQueue(nextQueue);
+  return {
+    ok: true,
+    item: nextItem,
+    unread: unreadCount(nextQueue),
+    history: nextQueue.filter(isRead).length,
+    starred: starredCount(nextQueue)
+  };
 }
 
 async function getState() {
@@ -1259,6 +1332,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           sendResponse({ ok: true });
           break;
         }
+        case 'markRead': {
+          sendResponse(await setItemRead(message.id, true));
+          break;
+        }
+        case 'markUnread': {
+          sendResponse(await setItemRead(message.id, false));
+          break;
+        }
+        case 'setRead': {
+          sendResponse(await setItemRead(message.id, Boolean(message.read)));
+          break;
+        }
         case 'toggleStar': {
           const { queue } = await getState();
           const idx = queue.findIndex((i) => i.id === message.id);
@@ -1289,15 +1374,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           // Legacy adjacent swap (kept for compatibility). Prefer reorderItem.
           const { queue } = await getState();
           const id = message.id;
-          const scope = message.amongStarred
-            ? queue.filter((i) => i.starred)
-            : queue;
+          const scope = reorderScope(queue, message);
           const display = sortQueueForDisplay(scope);
           const pos = display.findIndex((i) => i.id === id);
           if (pos < 0) {
             sendResponse({
               ok: false,
-              reason: message.amongStarred ? 'not_starred' : 'not_found'
+              reason:
+                message.view === 'starred' || message.amongStarred
+                  ? 'not_starred'
+                  : 'not_found'
             });
             break;
           }
@@ -1325,20 +1411,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
         }
         case 'reorderItem': {
-          // Drag-drop: place id at toIndex in the visible display list.
-          // Only reorders inside the same read-group (unread or history).
+          // Drag-drop: place id at toIndex in the visible tab list.
+          // view unread|starred|history scopes to that tab; still refuses
+          // to cross read-groups if a legacy full-queue scope is used.
           // Reassigns that group's addedAt newest-first so display + FIFO stay consistent.
           const { queue } = await getState();
           const id = message.id;
-          const scope = message.amongStarred
-            ? queue.filter((i) => i.starred)
-            : queue;
+          const scope = reorderScope(queue, message);
           const display = sortQueueForDisplay(scope);
           const from = display.findIndex((i) => i.id === id);
           if (from < 0) {
             sendResponse({
               ok: false,
-              reason: message.amongStarred ? 'not_starred' : 'not_found'
+              reason:
+                message.view === 'starred' || message.amongStarred
+                  ? 'not_starred'
+                  : 'not_found'
             });
             break;
           }

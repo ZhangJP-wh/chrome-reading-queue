@@ -10,11 +10,14 @@
   <header class="header">
     <div>
       <div class="tabs" role="tablist" aria-label="队列视图">
-        <button type="button" id="tabAll" class="tab active" role="tab" aria-selected="true" data-view="all">
-          阅读队列<span id="allCountBadge" class="tab-badge hidden"></span>
+        <button type="button" id="tabUnread" class="tab active" role="tab" aria-selected="true" data-view="unread">
+          未读队列<span id="unreadCountBadge" class="tab-badge hidden"></span>
         </button>
         <button type="button" id="tabStarred" class="tab tab-star" role="tab" aria-selected="false" data-view="starred">
           星标队列<span id="starredCountBadge" class="tab-badge hidden"></span>
+        </button>
+        <button type="button" id="tabHistory" class="tab tab-history" role="tab" aria-selected="false" data-view="history">
+          历史队列<span id="historyCountBadge" class="tab-badge hidden"></span>
         </button>
       </div>
       <p class="sub" id="statusLine">加载中…</p>
@@ -40,10 +43,10 @@
   </div>
 
   <ul id="queueList" class="queue" aria-live="polite"></ul>
-  <p id="emptyHint" class="empty hidden">队列是空的。在链接上右键 →「加入阅读队列」。点击条目可打开为当前标签。</p>
+  <p id="emptyHint" class="empty hidden">未读队列是空的。在链接上右键 →「加入阅读队列」。点击条目可打开为当前标签。</p>
 
   <footer class="footer">
-    点击条目打开并设为当前标签；打开后变灰色历史。点 ★ 收藏到星标队列。拖动 ☰ 可排序。关闭扩展打开的标签会自动开下一条未读。
+    未读与星标只显示未读；点「标为已读」移入历史（不打开页面），历史里可「标为未读」。点击条目仍会打开并标为已读。点 ★ 收藏。拖动 ☰ 只在当前页签内排序。
   </footer>
 
   <script src="popup.js"></script>

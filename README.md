@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.0.6**（见 `manifest.json`）
+**版本 / Version:** **2.0.9**（见 `manifest.json`）
 
 ---
 
@@ -79,8 +79,11 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 | 入队时尽量用页面上看得见的卡片标题 | Prefer visible on-page link/card title at enqueue |
 | 关闭扩展打开的标签后自动开下一条未读 | Closing a queue-opened tab opens the next unread |
 | 可设同时打开的最大标签数（1–5） | Max concurrent tabs (1–5) |
-| 已打开条目变灰进历史；可清空历史/整队 | Opened items become grey history; clear history/queue |
-| 卡片左侧 ★ 星标收藏；顶部「阅读队列 / 星标队列」页签（均显示数量） | Star ★ on each card; **阅读队列 / 星标队列** tabs (both show counts) |
+| 已打开条目进入**历史队列**（灰色）；可清空历史/整队 | Opened items move to **历史队列** (grey); clear history/queue |
+| 顶部三个页签：**未读队列**（仅未读）、**星标队列**（仅未读星标）、**历史队列**（仅已读）。历史页签在星标右侧，灰色与「补全标题」相同 | Three tabs: **未读队列** (unread only), **星标队列** (unread starred only), **历史队列** (read only, to the right of starred, same gray as 补全标题) |
+| 未读/星标卡片「标为已读」只改状态、不打开页面；历史卡片「标为未读」移回未读（星标仍在则也回到星标） | **标为已读** on unread/starred cards sets read without opening a tab; **标为未读** on history sends the item back |
+| 已读且星标的条目仍保留星标，只出现在历史队列（★ 点亮） | Read + starred items keep `starred: true` and appear only in history (★ stays lit) |
+| 卡片左侧 ★ 星标收藏；三个页签都显示数量徽章 | Star ★ on each card; all three tabs show count badges |
 | 星标队列页签浅金背景（`#fde68a`；★ 为 `#eab308`） | Starred tab light-gold fill (`#fde68a`; lit ★ `#eab308`) |
 | 最新加入的卡片排在列表上方；打开下一个仍先开最早未读 | Newest cards at top of list; open-next still oldest unread |
 | 拖动手柄（☰）跟手拖动排序；荧光蓝线 + 上下卡片挤开让位 | Drag handle (☰); neon line + cards push apart at gap |
@@ -142,7 +145,22 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
 
 ---
 
-## v2.0.6 变更 / Changelog
+## v2.0.9 变更 / Changelog
+
+- 第一个页签 **阅读队列** 改名为 **未读队列**，只列出未读（`read !== true`）  
+  First tab renamed **阅读队列** → **未读队列**; it lists unread items only
+- 星标右侧新增 **历史队列**（灰色页签，与「补全标题 / 清空历史」同色），只列出已读，最新在上  
+  New **历史队列** tab to the right of starred (muted gray); read items only, newest first
+- **星标队列** 只列出未读星标。已读星标仍保存 `starred: true`，只出现在历史队列且 ★ 点亮  
+  **星标队列** lists unread starred items only. Read + starred stays starred and shows under history with the star lit
+- 未读/星标卡片在「复制链接」旁增加灰色 **标为已读**（不打开标签，写入 `read` 与 `openedAt`）；历史卡片同位置为浅橙 **标为未读**（清掉已读和 `openedAt`）  
+  **标为已读** (gray, next to 复制链接) on unread/starred cards does not open a tab; **标为未读** (light orange) on history cards clears read state
+- 徽章：未读 = 未读数，历史 = 历史数，星标 = 星标页签里看得到的条数。状态行里的「星标」与此一致  
+  Badges: unread count, history count, and starred-tab count (unread starred). The status-line 星标 count matches
+- 拖动排序仍只在当前页签的可见列表内（同一已读分组）  
+  Drag-reorder stays inside the visible list of the current tab (same read-group)
+
+### v2.0.6
 
 - 落点蓝线处，上方卡片整体上移、下方卡片整体下移，**挤开更大空隙**，插入位置更直观  
   At the insert line, cards above shift up and cards below shift down to **open a clear gap**
