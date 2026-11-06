@@ -1,5 +1,5 @@
 /**
- * Reading Queue v2.1.2
+ * Reading Queue v2.1.3
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
@@ -19,6 +19,9 @@
  *   clearCurrentView({ view:'starred' }) deletes unread+starred only;
  *   clearCurrentView({ view:'history' }) deletes read items (former clearHistory).
  *   view 'unread' is refused so unread cannot be mass-cleared.
+ * Closed tabs: tabs.get / action.setIcon / scripting.executeScript go through
+ *   a callback that reads runtime.lastError. A tab that closed between query
+ *   and the call must not show up as Unchecked runtime.lastError.
  * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
  */
 
@@ -244,16 +247,86 @@ async function setActiveIds(ids) {
   await chrome.storage.local.set({ [STORAGE_KEYS.activeQueueTabIds]: arr });
 }
 
+/**
+ * 调用可能打到已关闭标签的 chrome API。
+ * action.setIcon 的 Promise 在「No tab with id」时仍可能 resolve，同时把
+ * runtime.lastError 留在内部回调里；try/catch 和 .catch() 都消不掉
+ * chrome://extensions 上的 Unchecked runtime.lastError。
+ * 回调里必须同步读取 lastError。若实现同时返回 Promise，也接住 rejection，
+ * 但以回调结果为准（回调已经把 lastError 标成已检查）。
+ * 失败时 { ok:false }，不抛错。标签不存在是正常情况。
+ */
+function chromeCallChecked(invoke) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let callbackCalled = false;
+    const finish = (payload) => {
+      if (settled) return;
+      settled = true;
+      resolve(payload);
+    };
+    const fail = (err) =>
+      finish({
+        ok: false,
+        error: err && err.message ? err.message : String(err || 'failed')
+      });
+    try {
+      const returned = invoke((result) => {
+        callbackCalled = true;
+        const err = chrome.runtime.lastError;
+        if (err) fail(err);
+        else finish({ ok: true, result });
+      });
+      if (returned && typeof returned.then === 'function') {
+        returned.then(
+          (result) => {
+            const err = chrome.runtime.lastError;
+            if (callbackCalled) return;
+            if (err) fail(err);
+            else finish({ ok: true, result });
+          },
+          (err) => {
+            void chrome.runtime.lastError;
+            if (callbackCalled) return;
+            fail(err);
+          }
+        );
+      }
+    } catch (err) {
+      fail(err);
+    }
+  });
+}
+
+function safeTabsGet(tabId) {
+  if (tabId == null) return Promise.resolve(null);
+  return chromeCallChecked((done) => chrome.tabs.get(tabId, done)).then((res) =>
+    res.ok ? res.result : null
+  );
+}
+
+function safeSetTabIcon(tabId, path) {
+  if (tabId == null) return Promise.resolve(false);
+  return chromeCallChecked((done) =>
+    chrome.action.setIcon({ tabId, path }, done)
+  ).then((res) => res.ok);
+}
+
+function safeExecuteScript(details) {
+  if (!details || !details.target || details.target.tabId == null) {
+    return Promise.resolve(null);
+  }
+  return chromeCallChecked((done) =>
+    chrome.scripting.executeScript(details, done)
+  ).then((res) => (res.ok ? res.result : null));
+}
+
 async function syncActiveFromStorage() {
   const { activeQueueTabIds } = await getState();
   const alive = [];
   for (const id of activeQueueTabIds) {
-    try {
-      await chrome.tabs.get(id);
-      alive.push(id);
-    } catch {
-      // gone
-    }
+    const tab = await safeTabsGet(id);
+    if (tab) alive.push(id);
   }
   await setActiveIds(alive);
   return alive;
@@ -353,16 +426,13 @@ async function applyTabQueueIcon(tab, queue) {
   if (!tab || tab.id == null) return;
   const show = isUnreadQueueUrl(tabPageUrl(tab), queue);
   if (tabInUnreadIcon.get(tab.id) === show) return;
-  try {
-    await chrome.action.setIcon({
-      tabId: tab.id,
-      path: show ? ACTION_ICON_IN_UNREAD : ACTION_ICON_DEFAULT
-    });
-    tabInUnreadIcon.set(tab.id, show);
-  } catch {
-    // Tab gone or not ready; retry on the next activation/update.
-    tabInUnreadIcon.delete(tab.id);
-  }
+  // 查询和 setIcon 之间标签可能已关。失败时不记缓存，下次激活再试。
+  const ok = await safeSetTabIcon(
+    tab.id,
+    show ? ACTION_ICON_IN_UNREAD : ACTION_ICON_DEFAULT
+  );
+  if (ok) tabInUnreadIcon.set(tab.id, show);
+  else tabInUnreadIcon.delete(tab.id);
 }
 
 /**
@@ -420,19 +490,18 @@ function syncTabQueueIcon(tabOrId) {
 async function syncTabQueueIconNow(tabOrId) {
   let tab = tabOrId;
   if (typeof tabOrId === 'number') {
-    try {
-      tab = await chrome.tabs.get(tabOrId);
-    } catch {
+    tab = await safeTabsGet(tabOrId);
+    if (!tab) {
       tabInUnreadIcon.delete(tabOrId);
       return;
     }
   } else if (!tab || tab.id == null) {
     return;
   } else if (!tabPageUrl(tab)) {
-    try {
-      tab = await chrome.tabs.get(tab.id);
-    } catch {
-      tabInUnreadIcon.delete(tab.id);
+    const id = tab.id;
+    tab = await safeTabsGet(id);
+    if (!tab) {
+      tabInUnreadIcon.delete(id);
       return;
     }
   }
@@ -903,12 +972,11 @@ async function fillTitlesFromOpenTabs({ onlyWeak = true, includeHistory = false 
     checked += 1;
 
     let raw = (match.title || '').trim();
-    // Prefer page meta if injectable
+    // Prefer page meta if injectable. 标签已关或页面不可注入时返回 null，沿用 tab.title。
     if (match.id != null) {
-      try {
-        const results = await chrome.scripting.executeScript({
-          target: { tabId: match.id },
-          func: () => {
+      const results = await safeExecuteScript({
+        target: { tabId: match.id },
+        func: () => {
             const og = document.querySelector('meta[property="og:title"]');
             if (og && og.content) return og.content.trim();
             const tw = document.querySelector('meta[name="twitter:title"]');
@@ -927,12 +995,9 @@ async function fillTitlesFromOpenTabs({ onlyWeak = true, includeHistory = false 
             if (h1 && h1.textContent) return h1.textContent.trim();
             return (document.title || '').trim();
           }
-        });
-        const value = results && results[0] && results[0].result;
-        if (value) raw = String(value).trim();
-      } catch {
-        // Restricted page; fall back to tab.title
-      }
+      });
+      const value = results && results[0] && results[0].result;
+      if (value) raw = String(value).trim();
     }
 
     const cleaned = cleanPageTitle(raw, item.url);
@@ -1071,7 +1136,7 @@ function ensureTitleAlarm() {
 async function scrapeLinkTitleFromTab(tabId, linkUrl) {
   if (tabId == null || !linkUrl) return null;
   try {
-    const results = await chrome.scripting.executeScript({
+    const results = await safeExecuteScript({
       target: { tabId },
       func: (targetUrl) => {
         function norm(href) {
@@ -1169,7 +1234,7 @@ async function scrapeLinkTitleFromTab(tabId, linkUrl) {
       if (s && !looksLikeUrl(s) && !isWeakTitle(s, linkUrl)) return s;
     }
   } catch {
-    // Restricted page
+    // 页面不可读，或其它意外失败。标签已关时 safeExecuteScript 返回 null。
   }
   return null;
 }
