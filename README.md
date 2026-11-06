@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.0.9**（见 `manifest.json`）
+**版本 / Version:** **2.1.0**（见 `manifest.json`）
 
 ### 一句话场景 / What it’s for
 
@@ -15,6 +15,8 @@ Chrome / Edge extension: right-click a **link** or the **current page** into a r
   Closing a queue tab opens the next unread
 - ★ 星标收藏；顶部「未读队列 / 星标队列 / 历史队列」，可标为已读或未读  
   ★ Star favorites; **未读 / 星标 / 历史** tabs; mark read or unread without opening a tab
+- 当前标签已在未读队列时，工具栏图标右上角出现粗荧光绿勾（未读数字徽章仍是蓝色）  
+  A thick fluorescent-green check appears on the toolbar icon when this tab is already unread (blue count badge stays)
 - ☰ 拖拽排序；最新加入的在最上面  
   ☰ Drag to reorder; newest cards stay on top
 
@@ -102,6 +104,7 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 | 补全标题：网络静默（不开标签、不抢前台） | Title fill: silent network (no tabs / no focus steal) |
 | 卡片「复制链接」一键复制完整 URL | Card **复制链接** copies full URL |
 | **不会**为取标题抢前台或自动播视频 | **No** focus-steal / autoplay just to fetch titles |
+| 当前页网址已在**未读**队列时，工具栏图标右上角叠加粗荧光绿勾（只这一标签；已读/历史不显示）。未读数量徽章仍在右下、蓝底 | Thick fluorescent-green check on the toolbar icon (top-right) when this tab’s URL is **unread** in the queue — that tab only; read/history does not. Blue unread-count badge stays bottom-right |
 
 ---
 
@@ -160,7 +163,14 @@ Do not use real browsing history in README/repo screenshots; demos must be redac
 
 ---
 
-## v2.0.9 变更 / Changelog
+## v2.1.0 变更 / Changelog
+
+- 当前标签的网址已在**未读**队列时，工具栏图标右上角叠加一枚粗荧光绿勾（`#39ff14`，画在蓝色文档图标上）。未读数量徽章不变：仍用 `setBadgeText`，背景保持蓝色 `#2563eb`  
+  When the active tab’s URL is already an **unread** item, the toolbar icon shows a thick fluorescent-green check (`#39ff14`) at the top-right of the blue document. The unread count badge is unchanged (`setBadgeText`, blue `#2563eb`)
+- 只按 `normalizeUrl`（去掉 hash）比较，并且只匹配 `read !== true`。切到别的标签、标为已读、或从队列移除后，该标签恢复原来的图标；其它标签不受影响  
+  Comparison uses `normalizeUrl` (hash stripped) and unread items only. Switching tabs, marking read, or removing the item restores that tab’s normal icon. Other tabs stay as they are
+
+### v2.0.9
 
 - 第一个页签 **阅读队列** 改名为 **未读队列**，只列出未读（`read !== true`）  
   First tab renamed **阅读队列** → **未读队列**; it lists unread items only

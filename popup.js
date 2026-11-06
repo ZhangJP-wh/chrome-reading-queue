@@ -1,5 +1,5 @@
 /**
- * Popup for Reading Queue v2.0.9.
+ * Popup for Reading Queue v2.1.0.
  * Tabs: 未读队列 (unread), 星标队列 (unread + starred), 历史队列 (read).
  * 标为已读 / 标为未读 update read state and do not open a tab.
  */

@@ -1,11 +1,15 @@
 /**
- * Reading Queue v2.0.9
+ * Reading Queue v2.1.0
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
  * Popup tabs: 未读队列 (unread only), 星标队列 (unread + starred), 历史队列 (read only).
  * markRead / markUnread / setRead flip read state without opening a tab.
  * Read + starred items keep starred:true and show only under 历史队列.
+ * Toolbar: tab-specific action icon gets a thick fluorescent-green check (top-right)
+ *   when that tab's URL is an unread queue item. Match is normalizeUrl (hash stripped)
+ *   and unread only. The numeric badge stays global blue (#2563eb). Other tabs keep
+ *   the default icon; leaving the URL, marking read, or removing the item restores it.
  * Order: storage keeps unread oldest-first (append before history) for simple FIFO layout;
  *   popup display sorts newest addedAt first within each tab's visible list.
  *   Drag-handle reorder reassigns addedAt inside that tab's visible list (same read-group).
@@ -190,6 +194,7 @@ async function getState() {
 async function setQueue(queue) {
   await chrome.storage.local.set({ [STORAGE_KEYS.queue]: queue });
   await updateBadge(unreadCount(queue));
+  await refreshIconsForQueue(queue);
 }
 
 async function getPending() {
@@ -274,6 +279,167 @@ function normalizeUrl(url) {
   } catch {
     return url.trim();
   }
+}
+
+/** Default toolbar icon (manifest). Passed per tabId to clear the unread check. */
+const ACTION_ICON_DEFAULT = {
+  16: 'icons/icon16.png',
+  32: 'icons/icon32.png',
+  48: 'icons/icon48.png',
+  128: 'icons/icon128.png'
+};
+
+/** Same blue document with a thick #39ff14 check in the top-right. */
+const ACTION_ICON_IN_UNREAD = {
+  16: 'icons/icon16-in-unread.png',
+  32: 'icons/icon32-in-unread.png',
+  48: 'icons/icon48-in-unread.png',
+  128: 'icons/icon128-in-unread.png'
+};
+
+/** tabId -> true when the in-unread icon is applied. Cleared when the SW restarts. */
+const tabInUnreadIcon = new Map();
+/** Sorted unread URLs last painted. Title-only queue writes skip a full rescan. */
+let unreadIconUrlKey = null;
+
+function unreadUrlKey(queue) {
+  const urls = [];
+  for (const item of Array.isArray(queue) ? queue : []) {
+    if (!item || isRead(item) || !item.url) continue;
+    const n = normalizeUrl(item.url);
+    if (n) urls.push(n);
+  }
+  urls.sort();
+  return urls.join('\n');
+}
+
+/**
+ * True when url matches an unread queue item.
+ * Uses normalizeUrl (hash stripped). Read/history items do not match.
+ * chrome://, edge://, empty, and non-http(s) URLs are never "in unread".
+ */
+function isUnreadQueueUrl(url, queue) {
+  if (!url || typeof url !== 'string') return false;
+  const clean = normalizeUrl(url);
+  if (!clean || !/^https?:\/\//i.test(clean)) return false;
+  for (const item of Array.isArray(queue) ? queue : []) {
+    if (!item || isRead(item) || !item.url) continue;
+    if (normalizeUrl(item.url) === clean) return true;
+  }
+  return false;
+}
+
+function tabPageUrl(tab) {
+  if (!tab) return '';
+  const url = typeof tab.url === 'string' ? tab.url : '';
+  const pending = typeof tab.pendingUrl === 'string' ? tab.pendingUrl : '';
+  if (/^https?:\/\//i.test(url)) return url;
+  if (/^https?:\/\//i.test(pending)) return pending;
+  return url || pending || '';
+}
+
+/** onUpdated should repaint on navigation url or load status, not on title-only noise. */
+function shouldRefreshTabIcon(changeInfo) {
+  if (!changeInfo) return false;
+  if (typeof changeInfo.url === 'string') return true;
+  return changeInfo.status === 'loading' || changeInfo.status === 'complete';
+}
+
+async function applyTabQueueIcon(tab, queue) {
+  if (!tab || tab.id == null) return;
+  const show = isUnreadQueueUrl(tabPageUrl(tab), queue);
+  if (tabInUnreadIcon.get(tab.id) === show) return;
+  try {
+    await chrome.action.setIcon({
+      tabId: tab.id,
+      path: show ? ACTION_ICON_IN_UNREAD : ACTION_ICON_DEFAULT
+    });
+    tabInUnreadIcon.set(tab.id, show);
+  } catch {
+    // Tab gone or not ready; retry on the next activation/update.
+    tabInUnreadIcon.delete(tab.id);
+  }
+}
+
+/**
+ * Queue writes and tab events can overlap (setQueue plus storage.onChanged).
+ * Paint serially and drop a stale snapshot when a newer queue paint is already queued.
+ */
+let iconPaintSerial = Promise.resolve();
+let iconPaintGen = 0;
+
+function enqueueIconPaint(task) {
+  const run = iconPaintSerial.then(task, task);
+  iconPaintSerial = run.then(
+    () => {},
+    () => {}
+  );
+  return run;
+}
+
+function refreshIconsForQueue(queue) {
+  const gen = ++iconPaintGen;
+  const snapshot = queue;
+  return enqueueIconPaint(() => {
+    if (gen !== iconPaintGen) return;
+    return paintQueueIcons(snapshot);
+  });
+}
+
+async function paintQueueIcons(queue) {
+  const key = unreadUrlKey(queue);
+  const keySame = key === unreadIconUrlKey;
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({});
+  } catch {
+    return;
+  }
+  const seen = new Set();
+  await Promise.all(
+    tabs.map((tab) => {
+      if (tab && tab.id != null) seen.add(tab.id);
+      if (keySame && tab && tabInUnreadIcon.has(tab.id)) return null;
+      return applyTabQueueIcon(tab, queue);
+    })
+  );
+  for (const id of tabInUnreadIcon.keys()) {
+    if (!seen.has(id)) tabInUnreadIcon.delete(id);
+  }
+  unreadIconUrlKey = key;
+}
+
+function syncTabQueueIcon(tabOrId) {
+  return enqueueIconPaint(() => syncTabQueueIconNow(tabOrId));
+}
+
+async function syncTabQueueIconNow(tabOrId) {
+  let tab = tabOrId;
+  if (typeof tabOrId === 'number') {
+    try {
+      tab = await chrome.tabs.get(tabOrId);
+    } catch {
+      tabInUnreadIcon.delete(tabOrId);
+      return;
+    }
+  } else if (!tab || tab.id == null) {
+    return;
+  } else if (!tabPageUrl(tab)) {
+    try {
+      tab = await chrome.tabs.get(tab.id);
+    } catch {
+      tabInUnreadIcon.delete(tab.id);
+      return;
+    }
+  }
+  let queue = [];
+  try {
+    const state = await getState();
+    queue = state.queue;
+  } catch {
+    return;
+  }
+  await applyTabQueueIcon(tab, queue);
 }
 
 function fallbackTitleFromUrl(url) {
@@ -1184,7 +1350,10 @@ function ensureContextMenus() {
 function boot() {
   ensureContextMenus();
   ensureTitleAlarm();
-  getState().then((s) => updateBadge(unreadCount(s.queue)));
+  getState().then((s) => {
+    updateBadge(unreadCount(s.queue)).catch(() => {});
+    refreshIconsForQueue(s.queue).catch(() => {});
+  });
   syncActiveFromStorage();
   pumpTitleFetches().catch(() => {});
 }
@@ -1205,6 +1374,22 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.runtime.onStartup.addListener(() => {
   boot();
+});
+
+chrome.tabs.onActivated.addListener((info) => {
+  if (!info || info.tabId == null) return;
+  syncTabQueueIcon(info.tabId).catch(() => {});
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!shouldRefreshTabIcon(changeInfo)) return;
+  const snapshot = tab && tab.id != null ? tab : { id: tabId };
+  syncTabQueueIcon(snapshot).catch(() => {});
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes || !changes[STORAGE_KEYS.queue]) return;
+  refreshIconsForQueue(changes[STORAGE_KEYS.queue].newValue).catch(() => {});
 });
 
 boot();
@@ -1254,6 +1439,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
+  tabInUnreadIcon.delete(tabId);
   await syncActiveFromStorage();
   if (!activeTabIds.has(tabId)) return;
   const ids = new Set(activeTabIds);
