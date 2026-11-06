@@ -1,8 +1,9 @@
 /**
- * Reading Queue v1.8.0
- * Prefer on-page visible link text / card title at enqueue (contextMenus.linkText + scrape).
+ * Reading Queue v1.9.1
+ * Link context: enqueue that link (prefer visible linkText / card title).
+ * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
- * Fix: looksLikeUrl no longer treats every non-URL string as a URL via normalizeUrl.
+ * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
  */
 
 const DEFAULT_MAX_ACTIVE = 2;
@@ -1045,8 +1046,13 @@ function ensureContextMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: 'rq-add-link',
-      title: '加入阅读队列',
+      title: '将此链接加入到阅读队列',
       contexts: ['link']
+    });
+    chrome.contextMenus.create({
+      id: 'rq-add-page',
+      title: '将当前页加入到阅读队列',
+      contexts: ['page', 'frame']
     });
   });
 }
@@ -1088,20 +1094,39 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId !== 'rq-add-link') return;
-  const url = info.linkUrl;
-  const title = await resolveLinkTitle({
-    linkUrl: url,
-    tab,
-    linkText: info.linkText,
-    selectionText: info.selectionText
-  });
+async function enqueueFromOpenTab(tab) {
+  if (!tab || !tab.url) return { ok: false, reason: 'no-tab' };
+  const url = tab.url;
+  if (!/^https?:\/\//i.test(url)) {
+    return { ok: false, reason: 'invalid' };
+  }
+  const title = cleanPageTitle(tab.title, url);
   const strong =
     Boolean(title) &&
     !looksLikeUrl(title) &&
     !isWeakTitle(title, url);
-  await enqueue({ url, title, fetchTitle: !strong });
+  return enqueue({ url, title, fetchTitle: !strong });
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'rq-add-link') {
+    const url = info.linkUrl;
+    const title = await resolveLinkTitle({
+      linkUrl: url,
+      tab,
+      linkText: info.linkText,
+      selectionText: info.selectionText
+    });
+    const strong =
+      Boolean(title) &&
+      !looksLikeUrl(title) &&
+      !isWeakTitle(title, url);
+    await enqueue({ url, title, fetchTitle: !strong });
+    return;
+  }
+  if (info.menuItemId === 'rq-add-page') {
+    await enqueueFromOpenTab(tab);
+  }
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {

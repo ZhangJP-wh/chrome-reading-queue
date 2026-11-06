@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "阅读队列 Reading Queue",
-  "version": "1.8.0",
-  "description": "右键把链接加入阅读队列，优先抓取页面上可见的链接文字/卡片标题；关闭标签页后按顺序自动打开下一个。",
+  "version": "1.9.1",
+  "description": "右键把链接或当前页面加入阅读队列；优先用可见标题/已打开标签标题；关闭后按顺序打开下一个。",
   "permissions": [
     "contextMenus",
     "storage",

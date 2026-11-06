@@ -7,7 +7,9 @@ If a user pastes https://github.com/ZhangJP-wh/chrome-reading-queue and asks you
 ## Success criteria / 成功标准
 
 - Extension loaded via “Load unpacked” / 「加载已解压的扩展程序」
-- Toolbar icon visible; right-click on a link shows 「加入阅读队列」
+- Toolbar icon visible
+- Right-click on a **link** shows 「将此链接加入到阅读队列」
+- Right-click on **page blank** shows 「将当前页加入到阅读队列」
 - Site access / host permissions allowed if prompted
 
 ## Procedure / 步骤
@@ -25,7 +27,9 @@ If a user pastes https://github.com/ZhangJP-wh/chrome-reading-queue and asks you
 - Do **not** rewrite extension code unless install fails.
 - Do **not** open random tabs to “test title fetch” with autoplay; smoke-test with toolbar popup only unless user asks.
 - Prefer ZIP download for non-technical users.
+- Do **not** promise a tab-strip (browser tab bar) context menu — Chrome/Edge APIs cannot add items there.
 
 ## Optional smoke test / 可选冒烟
 
-Open any page with links → right-click a link → 「加入阅读队列」→ open the popup and confirm the item appears (title may be the visible card text).
+1. Open any page with links → right-click a link → 「将此链接加入到阅读队列」→ popup shows the item (title may be the visible card text).
+2. On the same page, right-click blank area → 「将当前页加入到阅读队列」→ popup shows the current page with its tab title.
