@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "阅读队列 Reading Queue",
-  "version": "2.0.0",
-  "description": "右键把链接或当前页加入阅读队列；卡片可星标；星标队列页签；关闭后按顺序打开下一个。",
+  "version": "2.0.2",
+  "description": "右键把链接或当前页加入阅读队列；卡片可星标；双页签计数；关闭后按顺序打开下一个。",
   "permissions": [
     "contextMenus",
     "storage",

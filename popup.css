@@ -9,8 +9,9 @@
   --danger: #dc2626;
   --danger-bg: #fef2f2;
   --star: #eab308;
+  --star-tab: #fde68a;
   --star-bg: #fef9c3;
-  --star-border: #fde047;
+  --star-border: #facc15;
   --radius: 8px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -70,10 +71,24 @@ body {
   color: #fff;
 }
 
+/* 星标页签浅金填充 --star-tab=#fde68a；点亮 ★ 仍用更深的 --star=#eab308 */
+.tab.tab-star {
+  background: var(--star-tab);
+  border-color: #facc15;
+  color: #422006;
+}
+
+.tab.tab-star:hover {
+  background: #fef08a;
+  border-color: #eab308;
+  color: #422006;
+}
+
 .tab.tab-star.active {
-  background: var(--star);
-  border-color: #ca8a04;
-  color: #713f12;
+  background: var(--star-tab);
+  border-color: #eab308;
+  color: #0f172a;
+  box-shadow: inset 0 0 0 1px rgba(161, 98, 7, 0.18);
 }
 
 .tab-badge {
@@ -93,8 +108,12 @@ body {
   background: rgba(255, 255, 255, 0.28);
 }
 
+.tab.tab-star .tab-badge {
+  background: rgba(66, 32, 6, 0.12);
+}
+
 .tab.tab-star.active .tab-badge {
-  background: rgba(113, 63, 18, 0.18);
+  background: rgba(15, 23, 42, 0.12);
 }
 
 .sub {

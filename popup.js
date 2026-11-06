@@ -166,19 +166,23 @@ async function refresh() {
       status += ` · ${hint}`;
       status += ' · 网络取标题失败（国内常见）；不会再自动开标签页';
     } else {
-      status += ` · ${unreadWeak.length} 条标题仍弱（可点补全，或「从已打开标签补标题」）`;
+      status += ` · ${unreadWeak.length} 条标题仍弱（可点「补全标题」）`;
     }
   }
   $('statusLine').textContent = status;
 
-  const badge = $('starredCountBadge');
-  if (starredTotal > 0) {
-    badge.textContent = String(starredTotal > 99 ? '99+' : starredTotal);
-    badge.classList.remove('hidden');
-  } else {
-    badge.textContent = '';
-    badge.classList.add('hidden');
+  function setBadge(el, n) {
+    if (!el) return;
+    if (n > 0) {
+      el.textContent = String(n > 99 ? '99+' : n);
+      el.classList.remove('hidden');
+    } else {
+      el.textContent = '';
+      el.classList.add('hidden');
+    }
   }
+  setBadge($('allCountBadge'), queue.length);
+  setBadge($('starredCountBadge'), starredTotal);
 
   const visible =
     currentView === 'starred' ? queue.filter((i) => i.starred) : queue;
@@ -192,7 +196,7 @@ async function refresh() {
     empty.textContent =
       currentView === 'starred'
         ? '还没有星标条目。点卡片左侧 ★ 即可收藏到星标队列。'
-        : '队列是空的。在链接上右键 →「将此链接加入到阅读队列」，或在网页空白处右键 →「将当前页加入到阅读队列」。点击条目可打开为当前标签。';
+        : '队列是空的。在链接上右键 →「加入阅读队列」。点击条目可打开为当前标签。';
   } else {
     empty.classList.add('hidden');
   }
@@ -216,7 +220,7 @@ async function refresh() {
         </div>
         <div class="url-row">
           <p class="url" title="${escapeHtml(item.url)}">${escapeHtml(shortUrl(item.url))}</p>
-          <button type="button" class="copy-btn" data-act="copy" title="复制完整链接">复制</button>
+          <button type="button" class="copy-btn" data-act="copy" title="复制完整链接">复制链接</button>
         </div>
       </div>
       <div class="item-actions">
@@ -282,21 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
     startTitlePoll(90);
   });
 
-  $('btnFromOpenTabs').addEventListener('click', async () => {
-    $('statusLine').textContent = '正在从已打开标签读取标题…';
-    $('btnFromOpenTabs').disabled = true;
-    const r = await send('fillTitlesFromOpenTabs', {
-      onlyWeak: true,
-      includeHistory: false
-    });
-    $('btnFromOpenTabs').disabled = false;
-    if (r && r.ok) {
-      $('statusLine').textContent = `已从打开标签更新 ${r.updated || 0} 条（匹配 ${r.checked || 0}/${r.openTabs || 0} 个标签）`;
-    } else {
-      $('statusLine').textContent = '从已打开标签补标题失败';
-    }
-    await refresh();
-  });
 
   $('btnClearHistory').addEventListener('click', async () => {
     if (!confirm('确定清空历史记录？（未读条目会保留）')) return;

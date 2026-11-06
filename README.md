@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.0.0**（见 `manifest.json`）
+**版本 / Version:** **2.0.2**（见 `manifest.json`）
 
 ---
 
@@ -26,13 +26,13 @@ Chrome / Edge extension: right-click a **link** or the **current page** into a r
    If asked for site access, click **Allow**
 
 装好后：
-- 在**链接**上右键 → **将此链接加入到阅读队列**
-- 在网页**空白处**右键 → **将当前页加入到阅读队列**（用已打开标签的真实标题，一般一步到位）
+- 在**链接**上右键 → **加入阅读队列**
+- 在网页**空白处**右键 → **加入当前页**（用已打开标签的真实标题，一般一步到位）
 - 点工具栏图标打开列表
 
 Then:
-- Right-click a **link** → **将此链接加入到阅读队列**
-- Right-click **page blank** → **将当前页加入到阅读队列** (uses the open tab’s real title)
+- Right-click a **link** → **加入阅读队列**
+- Right-click **page blank** → **加入当前页** (uses the open tab’s real title)
 - Click the toolbar icon for the list
 
 ---
@@ -61,8 +61,8 @@ Steps (do them for me; Mac and Windows are the same flow):
 
 Do not rewrite the extension code unless install fails. Prefer the ZIP download path for non-technical users.
 When done, tell me briefly that it is installed and how to:
-- right-click a link → 将此链接加入到阅读队列
-- right-click page blank → 将当前页加入到阅读队列
+- right-click a link → 加入阅读队列
+- right-click page blank → 加入当前页
 ```
 
 仓库里也有独立文件 [`AGENT_INSTALL.md`](./AGENT_INSTALL.md)，Agent 可直接按该文件执行。  
@@ -74,14 +74,16 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 
 | 中文 | English |
 |------|---------|
-| 右键**链接** → **将此链接加入到阅读队列** | Right-click **link** → enqueue that URL |
-| 右键网页**空白处** → **将当前页加入到阅读队列**（用 `tab.title`） | Right-click **page blank** → enqueue current tab |
+| 右键**链接**入队（此链接） | Right-click **link** → enqueue that URL |
+| 右键网页**空白处**入队当前页（用 `tab.title`） | Right-click **page blank** → enqueue current tab |
 | 入队时尽量用页面上看得见的卡片标题 | Prefer visible on-page link/card title at enqueue |
 | 关闭扩展打开的标签后自动开下一条未读 | Closing a queue-opened tab opens the next unread |
 | 可设同时打开的最大标签数（1–5） | Max concurrent tabs (1–5) |
 | 已打开条目变灰进历史；可清空历史/整队 | Opened items become grey history; clear history/queue |
-| 卡片左侧 ★ 星标收藏；顶部「星标队列」页签 | Star ★ on each card; **星标队列** tab for starred only |
-| 补全标题：网络静默；可选「从已打开标签补标题」 | Title fill: silent network; optional “from open tabs” |
+| 卡片左侧 ★ 星标收藏；顶部「阅读队列 / 星标队列」页签（均显示数量） | Star ★ on each card; **阅读队列 / 星标队列** tabs (both show counts) |
+| 星标队列页签浅金背景（`#fde68a`；★ 为 `#eab308`） | Starred tab light-gold fill (`#fde68a`; lit ★ `#eab308`) |
+| 补全标题：网络静默（不开标签、不抢前台） | Title fill: silent network (no tabs / no focus steal) |
+| 卡片「复制链接」一键复制完整 URL | Card **复制链接** copies full URL |
 | **不会**为取标题抢前台或自动播视频 | **No** focus-steal / autoplay just to fetch titles |
 
 ---
@@ -96,10 +98,10 @@ This is a platform limitation, not a missing feature in this extension.
 
 **变通办法 / Workarounds：**
 
-1. 先点一下那个后台标签页（切到前台），再在网页空白处右键 → **将当前页加入到阅读队列**  
-   Focus that background tab first, then page-blank right-click → **将当前页加入到阅读队列**  
-2. 或者打开该页后，用弹窗里的 **「从已打开标签补标题」**  
-   Or use the popup button **「从已打开标签补标题」** after the page is open  
+1. 先点一下那个后台标签页（切到前台），再在网页空白处右键 → **加入当前页**  
+   Focus that background tab first, then page-blank right-click → enqueue current page  
+2. 或在弹窗里点 **补全标题**（网络静默抓取；国内网络可能失败）  
+   Or use popup **补全标题** (silent network fetch; may fail on restricted networks)  
 
 ---
 
@@ -138,7 +140,23 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
 
 ---
 
-## v2.0.0 变更 / Changelog
+## v2.0.2 变更 / Changelog
+
+- **星标队列**页签背景改为浅金 `#fde68a`（`--star-tab`），黑字更易读；点亮 ★ 仍为 `#eab308`  
+  **星标队列** tab fill lightened to `#fde68a` (`--star-tab`) for black-text contrast; lit ★ stays `#eab308`
+
+### v2.0.1
+
+- **星标队列**页签背景与点亮 ★ 同色（`#eab308` / `--star`）  
+  **星标队列** tab background matches lit ★ (`#eab308` / `--star`)
+- **阅读队列**与**星标队列**页签均显示条目数量徽章  
+  Both tabs show item-count badges
+- 移除弹窗按钮「从已打开标签补标题」  
+  Removed popup button “从已打开标签补标题”
+- 卡片复制按钮文案：**复制** → **复制链接**  
+  Copy button label: **复制** → **复制链接**
+
+### v2.0.0
 
 - 新增：每条卡片标题前 ★ / ☆ 星标按钮（点星不打开条目；状态持久化 `starred`）  
   New: ★/☆ star button before each title (does not open the item; persists `starred`)
@@ -149,12 +167,10 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
 
 ### v1.9.1
 
-- 新增：网页空白处 / frame 右键 → **将当前页加入到阅读队列**（`tab.url` + 清理后的 `tab.title`；标题够强则不再联网抓）  
-  New: page/frame right-click → **将当前页加入到阅读队列** (`tab.url` + cleaned `tab.title`; skip network when title is strong)
-- 链接右键菜单文案为 **将此链接加入到阅读队列**，与「当前页」区分  
-  Link menu title is **将此链接加入到阅读队列**
-- README 明确：无法向标签栏右键菜单注入项；给出切前台 / 弹窗补标题变通  
-  Docs: tab-strip menu impossible; document workarounds
+- 网页空白处右键 → **加入当前页**；链接右键 → **加入阅读队列**  
+  Page blank → enqueue current page; link → enqueue that link
+- 无法向浏览器标签栏右键菜单注入项（平台限制）  
+  Cannot inject into browser tab-strip context menu (platform limit)
 
 ---
 
