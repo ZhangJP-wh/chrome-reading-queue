@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.1.2**（见 `manifest.json`）
+**版本 / Version:** **2.1.3**（见 `manifest.json`）
 
 ### 一句话场景 / What it’s for
 
@@ -164,7 +164,14 @@ Do not use real browsing history in README/repo screenshots; demos must be redac
 
 ---
 
-## v2.1.2 变更 / Changelog
+## v2.1.3 变更 / Changelog
+
+- 关闭或切换标签时，扩展错误页不再出现「Unchecked runtime.lastError: No tab with id」。图标刷新（`chrome.action.setIcon`）、核对仍打开的队列标签（`chrome.tabs.get`）、从已打开页面取标题（`chrome.scripting.executeScript`）若赶上标签已经关掉，会在回调里读掉 `runtime.lastError` 并安静跳过  
+  Closing or switching tabs no longer leaves `Unchecked runtime.lastError: No tab with id` on the extension error page. Icon refresh (`chrome.action.setIcon`), active-queue checks (`chrome.tabs.get`), and title reads from an open page (`chrome.scripting.executeScript`) consume `runtime.lastError` in the callback and skip a tab that is already gone
+- 还开着的标签：未读绿勾、蓝色数量徽章、关掉队列页后打开下一条，行为与 2.1.2 相同  
+  For tabs that are still open, the unread green check, blue count badge, and open-next-on-close stay the same as 2.1.2
+
+### v2.1.2
 
 - 弹窗高度随内容收缩：1 条时很矮，不再留下大块空白；条目多时涨到 **Chrome 操作弹窗上限（约 600px）**，只有列表（`.queue`）滚动，顶栏、按钮和页脚保持可见  
   Popup height hugs the content: one item stays short; many items grow to **Chrome’s action-popup cap (~600px)**. Only the list scrolls; header, actions, and footer stay visible
