@@ -7,7 +7,19 @@ Chrome / Edge extension: right-click a **link** or the **current page** into a r
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
 **版本 / Version:** **2.0.9**（见 `manifest.json`）
 
----
+### 一句话场景 / What it’s for
+
+- 刷到好链接先入队，不必一次开几十个标签  
+  Save interesting links first — don’t open dozens of tabs at once
+- 关掉当前页后自动打开下一条未读  
+  Closing a queue tab opens the next unread
+- ★ 星标收藏；顶部「未读队列 / 星标队列 / 历史队列」，可标为已读或未读  
+  ★ Star favorites; **未读 / 星标 / 历史** tabs; mark read or unread without opening a tab
+- ☰ 拖拽排序；最新加入的在最上面  
+  ☰ Drag to reorder; newest cards stay on top
+
+> 说明：暂无 README 截图。若日后补充，只用**脱敏演示数据**，绝不放真实浏览记录。  
+> Note: no README screenshot for now. Any future demo image must use **fictional/redacted data**, never real browsing history.
 
 ## 给电脑小白：一分钟安装（Mac 和 Windows 相同）
 
@@ -143,6 +155,9 @@ After edits, click **Reload**.
 数据只存在本机 `chrome.storage.local`。不上传账号、不收集分析。补全标题时可能向页面所在站点或公开 oEmbed 接口发起请求（国内网络可能导致失败）。  
 Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fetch may request the page host or public oEmbed (may fail on restricted networks).
 
+README / 仓库配图勿使用真实浏览记录；演示图须脱敏或虚构。  
+Do not use real browsing history in README/repo screenshots; demos must be redacted or fictional.
+
 ---
 
 ## v2.0.9 变更 / Changelog
@@ -159,6 +174,16 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
   Badges: unread count, history count, and starred-tab count (unread starred). The status-line 星标 count matches
 - 拖动排序仍只在当前页签的可见列表内（同一已读分组）  
   Drag-reorder stays inside the visible list of the current tab (same read-group)
+
+### v2.0.8
+
+- **移除**含个人浏览记录的 README 截图（`docs/screenshots/popup-overview.png`）及截图章节；日后若补图须脱敏  
+  **Removed** README screenshot that contained personal browsing history; Screenshots section gone; future demos must be privacy-safe
+
+### v2.0.7
+
+- README 文首补充**一句话场景**（弹窗示意图已在 v2.0.8 因隐私移除）  
+  README: lead with **use-case bullets** (popup screenshot later removed in v2.0.8 for privacy)
 
 ### v2.0.6
 
