@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.0.3**（见 `manifest.json`）
+**版本 / Version:** **2.0.4**（见 `manifest.json`）
 
 ---
 
@@ -83,6 +83,7 @@ See also [`AGENT_INSTALL.md`](./AGENT_INSTALL.md).
 | 卡片左侧 ★ 星标收藏；顶部「阅读队列 / 星标队列」页签（均显示数量） | Star ★ on each card; **阅读队列 / 星标队列** tabs (both show counts) |
 | 星标队列页签浅金背景（`#fde68a`；★ 为 `#eab308`） | Starred tab light-gold fill (`#fde68a`; lit ★ `#eab308`) |
 | 最新加入的卡片排在列表上方；打开下一个仍先开最早未读 | Newest cards at top of list; open-next still oldest unread |
+| 拖动手柄（☰）上下拖动排序 | Drag handle (☰) to reorder cards |
 | 补全标题：网络静默（不开标签、不抢前台） | Title fill: silent network (no tabs / no focus steal) |
 | 卡片「复制链接」一键复制完整 URL | Card **复制链接** copies full URL |
 | **不会**为取标题抢前台或自动播视频 | **No** focus-steal / autoplay just to fetch titles |
@@ -141,7 +142,14 @@ Data stays in local `chrome.storage.local`. No accounts, no analytics. Title fet
 
 ---
 
-## v2.0.3 变更 / Changelog
+## v2.0.4 变更 / Changelog
+
+- 卡片右侧 ↑↓ 合并为 **拖动手柄**（三条横杠）；按住上下拖动即可排序  
+  Per-card ↑↓ replaced by a **drag handle** (three bars); drag to reorder
+- 排序仍通过重写同组（未读/历史）内的 `addedAt` 持久化；打开下一个仍是最早未读 FIFO  
+  Reorder persists by reassigning `addedAt` within the same read-group; open-next stays oldest-unread FIFO
+
+### v2.0.3
 
 - 列表按 **添加时间** 排序：最新加入的在最上方（未读一组内、历史一组内皆如此；星标页签同理）  
   List sorted by **addedAt**: newest on top (within unread, then within history; starred tab same)

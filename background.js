@@ -1,11 +1,12 @@
 /**
- * Reading Queue v2.0.3
+ * Reading Queue v2.0.4
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
  * Star items + dual popup tabs (全部 / 星标队列).
  * Order: storage keeps unread oldest-first (append before history) for simple FIFO layout;
  *   popup display sorts newest-addedAt first within unread, then history (also newest-first).
+ *   Drag-handle reorder reassigns addedAt within the same read-group (newest-first).
  *   openNext always picks the oldest unread by addedAt — not by on-screen position.
  * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
  */
@@ -1284,6 +1285,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           break;
         }
         case 'moveItem': {
+          // Legacy adjacent swap (kept for compatibility). Prefer reorderItem.
           const { queue } = await getState();
           const id = message.id;
           const scope = message.amongStarred
@@ -1304,15 +1306,76 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             sendResponse({ ok: true, queue: sortQueueForDisplay(queue) });
             break;
           }
-          // Display is newest-first by addedAt; swap timestamps so ↑/↓ match the list.
           const a = display[pos];
           const b = display[npos];
+          if (isRead(a) !== isRead(b)) {
+            sendResponse({ ok: true, queue: sortQueueForDisplay(queue) });
+            break;
+          }
           const aAt = itemAddedAt(a);
           const bAt = itemAddedAt(b);
           const next = queue.map((item) => {
             if (item.id === a.id) return { ...item, addedAt: bAt };
             if (item.id === b.id) return { ...item, addedAt: aAt };
             return item;
+          });
+          await setQueue(next);
+          sendResponse({ ok: true, queue: sortQueueForDisplay(next) });
+          break;
+        }
+        case 'reorderItem': {
+          // Drag-drop: place id at toIndex in the visible display list.
+          // Only reorders inside the same read-group (unread or history).
+          // Reassigns that group's addedAt newest-first so display + FIFO stay consistent.
+          const { queue } = await getState();
+          const id = message.id;
+          const scope = message.amongStarred
+            ? queue.filter((i) => i.starred)
+            : queue;
+          const display = sortQueueForDisplay(scope);
+          const from = display.findIndex((i) => i.id === id);
+          if (from < 0) {
+            sendResponse({
+              ok: false,
+              reason: message.amongStarred ? 'not_starred' : 'not_found'
+            });
+            break;
+          }
+          let to = Number(message.toIndex);
+          if (!Number.isFinite(to)) {
+            sendResponse({ ok: false, reason: 'bad_index' });
+            break;
+          }
+          to = Math.max(0, Math.min(display.length - 1, Math.round(to)));
+          const moved = display[from];
+          const sameGroup = (i) => isRead(i) === isRead(moved);
+          const group = display.filter(sameGroup);
+          const groupIndices = [];
+          for (let i = 0; i < display.length; i++) {
+            if (sameGroup(display[i])) groupIndices.push(i);
+          }
+          const fromG = group.findIndex((i) => i.id === id);
+          const gMin = groupIndices[0];
+          const gMax = groupIndices[groupIndices.length - 1];
+          const clampedTo = Math.max(gMin, Math.min(gMax, to));
+          let toG = groupIndices.indexOf(clampedTo);
+          if (toG < 0) toG = fromG;
+          if (fromG === toG) {
+            sendResponse({ ok: true, queue: sortQueueForDisplay(queue) });
+            break;
+          }
+          const newGroup = group.slice();
+          const [spliced] = newGroup.splice(fromG, 1);
+          newGroup.splice(toG, 0, spliced);
+          const stamps = newGroup.map((i) => itemAddedAt(i)).sort((a, b) => b - a);
+          for (let i = 1; i < stamps.length; i++) {
+            if (stamps[i] >= stamps[i - 1]) stamps[i] = stamps[i - 1] - 1;
+          }
+          const atById = new Map();
+          newGroup.forEach((item, idx) => atById.set(item.id, stamps[idx]));
+          const next = queue.map((item) => {
+            if (!atById.has(item.id)) return item;
+            return { ...item, addedAt: atById.get(item.id) };
           });
           await setQueue(next);
           sendResponse({ ok: true, queue: sortQueueForDisplay(next) });

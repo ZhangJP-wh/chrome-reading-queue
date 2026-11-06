@@ -202,7 +202,7 @@ async function refresh() {
     empty.classList.add('hidden');
   }
 
-  visible.forEach((item, index) => {
+  visible.forEach((item) => {
     const li = document.createElement('li');
     li.className = 'item' + (item.read ? ' history' : '');
     li.dataset.id = item.id;
@@ -225,8 +225,10 @@ async function refresh() {
         </div>
       </div>
       <div class="item-actions">
-        <button type="button" class="icon-btn" data-act="up" title="上移" ${index === 0 ? 'disabled' : ''}>↑</button>
-        <button type="button" class="icon-btn" data-act="down" title="下移" ${index === visible.length - 1 ? 'disabled' : ''}>↓</button>
+        <button type="button" class="drag-handle" data-act="drag" title="拖动排序"
+          aria-label="拖动排序" draggable="true">
+          <span class="grip" aria-hidden="true"></span>
+        </button>
         <button type="button" class="icon-btn delete" data-act="del" title="删除">×</button>
       </div>
     `;
@@ -333,25 +335,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
         return;
       }
-      if (act === 'up') {
-        await send('moveItem', {
-          id,
-          direction: 'up',
-          amongStarred: currentView === 'starred'
-        });
-      }
-      if (act === 'down') {
-        await send('moveItem', {
-          id,
-          direction: 'down',
-          amongStarred: currentView === 'starred'
-        });
+      if (act === 'drag') {
+        // Drag handle: reordering via drag events, not click.
+        return;
       }
       if (act === 'del') await send('removeItem', { id });
       await refresh();
       return;
     }
 
+    if (justDragged) return;
     const id = item.dataset.id;
     await send('openItem', { id });
     try {
@@ -360,4 +353,92 @@ document.addEventListener('DOMContentLoaded', () => {
       // popup closed
     }
   });
+
+  // --- Drag handle reorder (HTML5) ---
+  let dragId = null;
+  let dragOverId = null;
+  let justDragged = false;
+
+  $('queueList').addEventListener('dragstart', (e) => {
+    const handle = e.target.closest('.drag-handle');
+    const item = e.target.closest('.item');
+    if (!handle || !item) {
+      e.preventDefault();
+      return;
+    }
+    dragId = item.dataset.id;
+    dragOverId = dragId;
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragId);
+    // Improve drag image slightly
+    try {
+      e.dataTransfer.setDragImage(item, 24, 16);
+    } catch {
+      // ignore
+    }
+  });
+
+  $('queueList').addEventListener('dragend', (e) => {
+    const item = e.target.closest('.item');
+    if (item) item.classList.remove('dragging');
+    $('queueList').querySelectorAll('.item.drag-over').forEach((el) => {
+      el.classList.remove('drag-over');
+    });
+    if (dragId) justDragged = true;
+    dragId = null;
+    dragOverId = null;
+    setTimeout(() => {
+      justDragged = false;
+    }, 50);
+  });
+
+  $('queueList').addEventListener('dragover', (e) => {
+    const item = e.target.closest('.item');
+    if (!dragId || !item) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const overId = item.dataset.id;
+    if (overId === dragOverId) return;
+    dragOverId = overId;
+    $('queueList').querySelectorAll('.item.drag-over').forEach((el) => {
+      el.classList.remove('drag-over');
+    });
+    if (overId !== dragId) item.classList.add('drag-over');
+  });
+
+  $('queueList').addEventListener('dragleave', (e) => {
+    const item = e.target.closest('.item');
+    if (!item) return;
+    // Only clear when leaving the item entirely
+    if (!item.contains(e.relatedTarget)) {
+      item.classList.remove('drag-over');
+    }
+  });
+
+  $('queueList').addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const item = e.target.closest('.item');
+    const sourceId = dragId || e.dataTransfer.getData('text/plain');
+    if (!item || !sourceId) return;
+    justDragged = true;
+    const targetId = item.dataset.id;
+    item.classList.remove('drag-over');
+    const items = [...$('queueList').querySelectorAll('.item')];
+    const from = items.findIndex((el) => el.dataset.id === sourceId);
+    const to = items.findIndex((el) => el.dataset.id === targetId);
+    dragId = null;
+    dragOverId = null;
+    if (from < 0 || to < 0 || from === to) {
+      await refresh();
+      return;
+    }
+    await send('reorderItem', {
+      id: items[from].dataset.id,
+      toIndex: to,
+      amongStarred: currentView === 'starred'
+    });
+    await refresh();
+  });
+
 });

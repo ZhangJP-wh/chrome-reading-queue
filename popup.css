@@ -359,6 +359,61 @@ body {
   align-items: center;
 }
 
+.drag-handle {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 5px;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: #94a3b8;
+  touch-action: none;
+}
+
+.drag-handle:hover {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #cbd5e1;
+}
+
+.drag-handle:active,
+.item.dragging .drag-handle {
+  cursor: grabbing;
+}
+
+.grip {
+  display: block;
+  width: 12px;
+  height: 10px;
+  background:
+    linear-gradient(currentColor, currentColor) 0 0 / 100% 2px no-repeat,
+    linear-gradient(currentColor, currentColor) 0 4px / 100% 2px no-repeat,
+    linear-gradient(currentColor, currentColor) 0 8px / 100% 2px no-repeat;
+  pointer-events: none;
+}
+
+.item.dragging {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.item.drag-over {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px #93c5fd;
+  background: #eff6ff;
+}
+
+.item.history.drag-over {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  box-shadow: none;
+}
+
 .icon-btn {
   appearance: none;
   border: 1px solid var(--border);
