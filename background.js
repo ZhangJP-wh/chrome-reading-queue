@@ -1,5 +1,5 @@
 /**
- * Reading Queue v2.1.3
+ * Reading Queue v2.1.4
  * Link context: enqueue that link (prefer visible linkText / card title).
  * Page/frame context: enqueue current tab (tab.url + tab.title) — no network if title strong.
  * Silent network fetch only for weak titles. No focus steal, no autoplay tabs.
@@ -22,6 +22,11 @@
  * Closed tabs: tabs.get / action.setIcon / scripting.executeScript go through
  *   a callback that reads runtime.lastError. A tab that closed between query
  *   and the call must not show up as Unchecked runtime.lastError.
+ * Context menus: boot() runs from service-worker start, onInstalled, and
+ *   onStartup, and those can overlap. ensureContextMenus is serialized
+ *   (removeAll, then create rq-add-link / rq-add-page). Both calls go through
+ *   chromeCallChecked so a duplicate id is read in the callback and cannot
+ *   show up as Unchecked runtime.lastError.
  * Note: Chrome/Edge cannot add items to the browser tab-strip context menu.
  */
 
@@ -255,6 +260,8 @@ async function setActiveIds(ids) {
  * 回调里必须同步读取 lastError。若实现同时返回 Promise，也接住 rejection，
  * 但以回调结果为准（回调已经把 lastError 标成已检查）。
  * 失败时 { ok:false }，不抛错。标签不存在是正常情况。
+ * contextMenus.removeAll / create 同样走这里：重复 id 只会在回调里变成
+ * runtime.lastError，try/catch 或 Promise catch 消不掉错误页上的记录。
  */
 function chromeCallChecked(invoke) {
   return new Promise((resolve) => {
@@ -293,6 +300,7 @@ function chromeCallChecked(invoke) {
         );
       }
     } catch (err) {
+      void chrome.runtime.lastError;
       fail(err);
     }
   });
@@ -1436,18 +1444,39 @@ async function fillToMax() {
   return { ok: true, opened: results.filter((r) => r.ok).length };
 }
 
+let contextMenuSerial = Promise.resolve();
+
+/**
+ * Service-worker eval, onInstalled, and onStartup can call boot() before an
+ * earlier removeAll callback has created the items. A second create() for the
+ * same id then sets runtime.lastError ("Cannot create item with duplicate id")
+ * with no stack. Run one install at a time, and read lastError inside the
+ * chrome callback (chromeCallChecked) so a duplicate cannot be unchecked.
+ */
 function ensureContextMenus() {
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
-      id: 'rq-add-link',
-      title: '将此链接加入到阅读队列',
-      contexts: ['link']
-    });
-    chrome.contextMenus.create({
-      id: 'rq-add-page',
-      title: '将当前页加入到阅读队列',
-      contexts: ['page', 'frame']
-    });
+  const run = contextMenuSerial.then(installContextMenus, installContextMenus);
+  contextMenuSerial = run.then(
+    () => {},
+    () => {}
+  );
+  return run;
+}
+
+function createContextMenu(props) {
+  return chromeCallChecked((done) => chrome.contextMenus.create(props, done));
+}
+
+async function installContextMenus() {
+  await chromeCallChecked((done) => chrome.contextMenus.removeAll(done));
+  await createContextMenu({
+    id: 'rq-add-link',
+    title: '将此链接加入到阅读队列',
+    contexts: ['link']
+  });
+  await createContextMenu({
+    id: 'rq-add-page',
+    title: '将当前页加入到阅读队列',
+    contexts: ['page', 'frame']
   });
 }
 

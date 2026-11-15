@@ -5,7 +5,7 @@ Chrome / Edge 扩展：右键把**链接**或**当前页面**加入阅读队列�
 Chrome / Edge extension: right-click a **link** or the **current page** into a reading queue; closing a queue tab opens the next one so you don’t open dozens of tabs at once.
 
 **仓库 / Repo:** https://github.com/ZhangJP-wh/chrome-reading-queue  
-**版本 / Version:** **2.1.3**（见 `manifest.json`）
+**版本 / Version:** **2.1.4**（见 `manifest.json`）
 
 ### 一句话场景 / What it’s for
 
@@ -164,7 +164,12 @@ Do not use real browsing history in README/repo screenshots; demos must be redac
 
 ---
 
-## v2.1.3 变更 / Changelog
+## v2.1.4 变更 / Changelog
+
+- `chrome://extensions` 错误页不再出现「Unchecked runtime.lastError: Cannot create item with duplicate id rq-add-link」或「… rq-add-page」。服务工作线程启动、扩展安装/更新（`onInstalled`）和浏览器启动（`onStartup`）可能叠在一起注册右键菜单；现在按顺序「先全部移除、再创建」，并在回调里同步读掉 `runtime.lastError`（与 2.1.3 关标签的处理同一方式）。菜单不变：右键链接 →「将此链接加入到阅读队列」；右键页面或框架 →「将当前页加入到阅读队列」  
+  The extension error page no longer shows `Unchecked runtime.lastError: Cannot create item with duplicate id rq-add-link` or `rq-add-page`. Service-worker startup, install/update (`onInstalled`), and browser startup (`onStartup`) can register context menus on top of each other; registration now runs one at a time (remove all, then create) and reads `runtime.lastError` synchronously in the callback (same approach as the 2.1.3 closed-tab fix). Menus are unchanged: right-click a link → 「将此链接加入到阅读队列」; right-click a page or frame → 「将当前页加入到阅读队列」
+
+### v2.1.3
 
 - 关闭或切换标签时，扩展错误页不再出现「Unchecked runtime.lastError: No tab with id」。图标刷新（`chrome.action.setIcon`）、核对仍打开的队列标签（`chrome.tabs.get`）、从已打开页面取标题（`chrome.scripting.executeScript`）若赶上标签已经关掉，会在回调里读掉 `runtime.lastError` 并安静跳过  
   Closing or switching tabs no longer leaves `Unchecked runtime.lastError: No tab with id` on the extension error page. Icon refresh (`chrome.action.setIcon`), active-queue checks (`chrome.tabs.get`), and title reads from an open page (`chrome.scripting.executeScript`) consume `runtime.lastError` in the callback and skip a tab that is already gone
