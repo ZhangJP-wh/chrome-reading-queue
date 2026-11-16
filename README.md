@@ -295,3 +295,9 @@ Do not use real browsing history in README/repo screenshots; demos must be redac
 ## License
 
 MIT
+
+
+## 隐私政策 / Privacy policy
+
+参见 [PRIVACY.md](PRIVACY.md)，包括本地存储及在线服务的数据用途。
+See the privacy policy for local storage and online service data usage.
